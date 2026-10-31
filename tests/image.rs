@@ -369,3 +369,16 @@ fn bold_italic_and_code_are_drawn_in_their_fonts() {
             .any(|(text, bold, italic, mono)| text.contains("link") && !bold && !italic && !mono)
     );
 }
+
+// XMLの特殊文字は、エスケープされる
+#[test]
+fn xml_special_characters_are_escaped() {
+    let tree = tree_of(&svg_of(
+        "# A < B & \"C\"\n- x < y & 'z' > \"w\"\n  - tag #a&b",
+    ));
+
+    let contents = contents_of(&tree);
+    assert!(contents.contains(&"A < B & \"C\"".to_string()));
+    assert!(contents.contains(&"x < y & 'z' > \"w\"".to_string()));
+    assert!(contents.contains(&"a&b".to_string()));
+}
