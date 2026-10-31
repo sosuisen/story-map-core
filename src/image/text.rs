@@ -65,6 +65,7 @@ impl TextSpec {
     }
 
     /// The pieces that a line may break between: words, spaces, and single CJK characters.
+    /// Punctuation and brackets stay with their neighbors, so that they do not start or end a line.
     /// Each piece has one run. Spaces in a row become one space
     pub(super) fn pieces(&self) -> Vec<TextSpec> {
         self.runs
@@ -142,11 +143,16 @@ fn split_run(run: &Run) -> Vec<Run> {
         text: text.to_string(),
         ..run.clone()
     };
-    let mut pieces = Vec::new();
+    // An opening bracket must not end a line, so it stays with the piece after it
+    let push = |pieces: &mut Vec<Run>, text: &str| match pieces.last_mut() {
+        Some(last) if last.text.ends_with(NO_LINE_END) => last.text.push_str(text),
+        _ => pieces.push(piece(text)),
+    };
+    let mut pieces: Vec<Run> = Vec::new();
     let mut word = String::new();
     let flush = |word: &mut String, pieces: &mut Vec<Run>| {
         if !word.is_empty() {
-            pieces.push(piece(word));
+            push(pieces, word);
             word.clear();
         }
     };
@@ -156,9 +162,16 @@ fn split_run(run: &Run) -> Vec<Run> {
             if pieces.last().is_none_or(|last| last.text != " ") {
                 pieces.push(piece(" "));
             }
+        } else if NO_LINE_START.contains(&ch) && !word.is_empty() {
+            word.push(ch);
+        } else if NO_LINE_START.contains(&ch)
+            && let Some(last) = pieces.last_mut().filter(|last| last.text != " ")
+        {
+            // Punctuation must not start a line, so it stays with the piece before it
+            last.text.push(ch);
         } else if is_cjk(ch) {
             flush(&mut word, &mut pieces);
-            pieces.push(piece(&ch.to_string()));
+            push(&mut pieces, &ch.to_string());
         } else {
             word.push(ch);
         }
@@ -166,6 +179,16 @@ fn split_run(run: &Run) -> Vec<Run> {
     flush(&mut word, &mut pieces);
     pieces
 }
+
+// The characters that must not start a line, in the Japanese rules of line breaking (kinsoku)
+const NO_LINE_START: &[char] = &[
+    '、', '。', '，', '．', '・', '：', '；', '？', '！', 'ー', '〜', '々', '）', '」', '』', '】',
+    '〕', '〉', '》', '］', '｝', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'っ', 'ゃ', 'ゅ', 'ょ', 'ゎ', 'ァ',
+    'ィ', 'ゥ', 'ェ', 'ォ', 'ッ', 'ャ', 'ュ', 'ョ', 'ヮ', 'ヵ', 'ヶ',
+];
+
+// The characters that must not end a line
+const NO_LINE_END: &[char] = &['（', '「', '『', '【', '〔', '〈', '《', '［', '｛'];
 
 // Chinese, Japanese, and Korean text has no spaces, so a line may break between any two of these characters
 fn is_cjk(ch: char) -> bool {
