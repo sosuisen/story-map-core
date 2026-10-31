@@ -1,7 +1,7 @@
 // アウトラインの読み取りとレイアウト
 // Reading the outline and laying out the cards
 
-use story_map_core::{Card, Cell, parse};
+use storymap::{Card, Cell, parse};
 
 fn texts(cells: &[Cell]) -> Vec<&str> {
     cells.iter().map(|cell| cell.card.text.as_str()).collect()

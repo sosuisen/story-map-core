@@ -1,4 +1,4 @@
-# story-map-core
+# storymap
 
 Turn a Markdown outline into a user story map.
 
@@ -46,13 +46,13 @@ Add the crate to `Cargo.toml`:
 
 ```toml
 [dependencies]
-story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0" }
+storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0" }
 ```
 
 Read an outline as a `StoryMap`:
 
 ```rust
-let map = story_map_core::parse("- Activity A\n  - Task A1");
+let map = storymap::parse("- Activity A\n  - Task A1");
 
 for cell in &map.cells {
     println!("{} at level {}, column {}", cell.card.text, cell.level, cell.column);
@@ -67,9 +67,9 @@ Render them in the way that fits your app.
 The `html` feature is on by default:
 
 ```rust
-use story_map_core::html::{map_css, render_map_content};
+use storymap::html::{map_css, render_map_content};
 
-let map = story_map_core::parse("- Activity A\n  - Task A1");
+let map = storymap::parse("- Activity A\n  - Task A1");
 let page = format!("<style>{}</style><div class=\"map-zoom\">{}</div>", map_css(), render_map_content(&map));
 ```
 
@@ -79,7 +79,7 @@ Raw HTML in the text is escaped.
 If you do not need HTML, turn the feature off:
 
 ```toml
-story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0", default-features = false }
+storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0", default-features = false }
 ```
 
 ### Image
@@ -87,16 +87,15 @@ story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0
 The `image` feature is off by default. Turn it on:
 
 ```toml
-story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0", features = ["image"] }
+storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0", features = ["image"] }
 ```
 
 Render the map as an SVG document or a PNG image:
 
 ```rust
-use story_map_core::image::{ImageOptions, render_png, render_svg};
+use storymap::image::{ImageOptions, render_png, render_svg};
 
-let map = story_map_core::parse("- Activity A
-  - Task A1");
+let map = storymap::parse("- Activity A\n  - Task A1");
 let options = ImageOptions { scale: 2.0, ..ImageOptions::default() };
 let svg: String = render_svg(&map, &options);
 let png: Vec<u8> = render_png(&map, &options);
