@@ -244,3 +244,20 @@ fn tags_are_drawn_after_the_text_on_round_backgrounds() {
             < card_box(&tree, 0).right()
     );
 }
+
+// レベルのタイトルは1列目に描かれ、カードは2列目から始まる
+#[test]
+fn level_titles_are_drawn_in_the_first_column() {
+    let tree = tree_of(&svg_of("1. Activities\n2. Tasks\n\n- Activity\n\t- Task"));
+
+    let activities = text_box(&tree, "Activities");
+    let tasks = text_box(&tree, "Tasks");
+    assert!(activities.right() < card_box(&tree, 0).left());
+    assert!(tasks.right() < card_box(&tree, 1).left());
+    // タイトルは、そのレベルの行に描かれる
+    assert!(
+        activities.top() > card_box(&tree, 0).top()
+            && activities.bottom() < card_box(&tree, 0).bottom()
+    );
+    assert!(tasks.top() > card_box(&tree, 1).top() && tasks.bottom() < card_box(&tree, 1).bottom());
+}
