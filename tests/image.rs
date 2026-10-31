@@ -207,3 +207,17 @@ fn a_done_card_has_no_border_and_an_open_card_has_a_shadow() {
     assert!(stroke_of(&tree, "card-2").is_some());
     assert!(has_shadow(&tree, 2));
 }
+
+fn contents_of(tree: &Tree) -> Vec<String> {
+    texts_of(tree).into_iter().map(|(text, _)| text).collect()
+}
+
+// チェックボックスは、絵文字として描かれる
+#[test]
+fn checkboxes_are_drawn_as_emoji() {
+    let tree = tree_of(&svg_of("- Activity\n\t- [x] Done\n\t- [ ] Open"));
+
+    let contents = contents_of(&tree);
+    assert!(contents.contains(&"✅ Done".to_string()));
+    assert!(contents.contains(&"⬜ Open".to_string()));
+}
