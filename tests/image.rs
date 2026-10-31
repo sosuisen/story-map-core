@@ -84,3 +84,39 @@ fn activities_go_from_left_to_right_in_outline_order() {
     assert_eq!(a.top(), b.top());
     assert_eq!(b.top(), c.top());
 }
+
+// 子のカードは、親の下に同じ列で並ぶ
+#[test]
+fn a_child_card_is_below_its_parent_in_the_same_column() {
+    let tree = tree_of(&svg_of("- Activity A\n\t- Task A1\n\t\t- Detail"));
+
+    let activity = text_box(&tree, "Activity A");
+    let task = text_box(&tree, "Task A1");
+    let detail = text_box(&tree, "Detail");
+    assert!(activity.bottom() < task.top() && task.bottom() < detail.top());
+    assert_eq!(activity.left(), task.left());
+    assert_eq!(task.left(), detail.left());
+}
+
+// The box of the card frame at the given index of the cells
+fn card_box(tree: &Tree, index: usize) -> Rect {
+    tree.node_by_id(&format!("card-{index}"))
+        .unwrap()
+        .abs_bounding_box()
+}
+
+// 長い文字のカードの列は、短い文字の列より広くなる
+#[test]
+fn a_column_with_a_long_text_is_wider() {
+    let tree = tree_of(&svg_of(
+        "- Short\n- A much longer activity name than the others\n- Short",
+    ));
+
+    let short = card_box(&tree, 0);
+    let long = card_box(&tree, 1);
+    assert!(long.width() > short.width());
+    // 文字は、カードの枠に収まる
+    assert!(text_box(&tree, "A much longer activity name than the others").right() < long.right());
+    // 広い列の分だけ、右の列は右にずれる
+    assert!(long.right() < card_box(&tree, 2).left());
+}
