@@ -29,7 +29,7 @@ const CARD_BORDER: f32 = 2.0;
 const CARD_PADDING_X: f32 = 8.0;
 const CARD_PADDING_Y: f32 = 4.0;
 const CARD_MIN_WIDTH: f32 = 120.0;
-const CARD_MAX_WIDTH: f32 = 240.0;
+const DEFAULT_MAX_CARD_WIDTH: f32 = 240.0;
 const CARD_RADIUS: f32 = 6.0;
 const CARD_HEIGHT: f32 = LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + CARD_BORDER);
 const ROW_HEIGHT: f32 = CARD_HEIGHT + 2.0 * CARD_MARGIN;
@@ -62,10 +62,13 @@ pub struct ImageOptions {
     pub fonts: Arc<fontdb::Database>,
     /// The size of the PNG image, where 1.0 is one pixel per CSS pixel
     pub scale: f32,
+    /// The widest that a card may be, in CSS pixels. A longer text wraps onto more lines.
+    /// Like CSS, the minimum width of 120 wins over a smaller value
+    pub max_card_width: f32,
 }
 
 impl Default for ImageOptions {
-    /// The fonts of the OS, at a scale of 1.0
+    /// The fonts of the OS, at a scale of 1.0, with cards up to 240 pixels wide
     fn default() -> Self {
         let mut fonts = fontdb::Database::new();
         fonts.load_system_fonts();
@@ -73,6 +76,7 @@ impl Default for ImageOptions {
         Self {
             fonts: Arc::new(fonts),
             scale: 1.0,
+            max_card_width: DEFAULT_MAX_CARD_WIDTH,
         }
     }
 }
@@ -217,6 +221,7 @@ struct CardContent {
     lines: Vec<Vec<(f32, Item)>>,
     // The width of the widest line
     width: f32,
+    max_card_width: f32,
 }
 
 impl CardContent {
@@ -238,7 +243,6 @@ impl CardContent {
         let mut advances = measure_advances(&pieces.concat(), options).into_iter();
         let mut tag_widths = measure(&tags, options).into_iter();
         let mut tags = tags.into_iter();
-        let line_width = CARD_MAX_WIDTH - 2.0 * (CARD_PADDING_X + CARD_BORDER);
         map.cells
             .iter()
             .zip(pieces)
@@ -255,14 +259,15 @@ impl CardContent {
                         TAG_MARGIN + width + 2.0 * TAG_PADDING_X,
                     ));
                 }
-                Self::wrap(items, line_width)
+                Self::wrap(items, options.max_card_width)
             })
             .collect()
     }
 
     // Fill each line with items until the next one would pass the width.
     // A space at the start or the end of a line is dropped, like in CSS
-    fn wrap(items: Vec<(Item, f32)>, line_width: f32) -> Self {
+    fn wrap(items: Vec<(Item, f32)>, max_card_width: f32) -> Self {
+        let line_width = max_card_width - 2.0 * (CARD_PADDING_X + CARD_BORDER);
         let mut lines: Vec<Vec<(f32, Item)>> = vec![Vec::new()];
         let mut widths = vec![0.0_f32];
         let mut space: Option<(Item, f32)> = None;
@@ -294,17 +299,18 @@ impl CardContent {
         Self {
             lines,
             width: widths.into_iter().fold(0.0, f32::max),
+            max_card_width,
         }
     }
 
-    // Like CSS min-width and max-width. A card that wraps fills the maximum width
+    // Like CSS min-width and max-width, where the minimum wins. A card that wraps fills the maximum width
     fn card_width(&self) -> f32 {
-        if self.lines.len() > 1 {
-            CARD_MAX_WIDTH
+        let natural = if self.lines.len() > 1 {
+            self.max_card_width
         } else {
-            (self.width + 2.0 * (CARD_PADDING_X + CARD_BORDER))
-                .clamp(CARD_MIN_WIDTH, CARD_MAX_WIDTH)
-        }
+            (self.width + 2.0 * (CARD_PADDING_X + CARD_BORDER)).min(self.max_card_width)
+        };
+        natural.max(CARD_MIN_WIDTH)
     }
 
     fn card_height(&self) -> f32 {
