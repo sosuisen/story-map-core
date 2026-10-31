@@ -43,6 +43,18 @@ fn cards_have_a_maximum_width_that_a_variable_can_change() {
     assert!(css.contains("overflow-wrap: anywhere;"));
 }
 
+// 同じ行のカードは、行の高さまで伸びて、同じ高さになる
+#[test]
+fn cards_stretch_to_the_height_of_their_row() {
+    let css = map_css();
+
+    let card_rule = css
+        .lines()
+        .find(|line| line.starts_with(".card {"))
+        .unwrap();
+    assert!(card_rule.contains("align-self: stretch;"));
+}
+
 // インラインのMarkdownは、markdown-itと同じHTMLになる
 #[test]
 fn inline_markdown_is_rendered_like_markdown_it() {
