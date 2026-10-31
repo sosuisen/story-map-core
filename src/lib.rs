@@ -5,6 +5,8 @@
 //! With the `html` feature, the [`html`] module renders the map as HTML.
 //! With the `image` feature, the [`image`] module renders the map as an SVG or PNG image.
 
+#[cfg(any(feature = "html", feature = "image"))]
+mod escape;
 mod layout;
 #[cfg(any(feature = "html", feature = "image"))]
 mod style;

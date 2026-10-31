@@ -5,7 +5,8 @@
 
 mod inline;
 
-pub use inline::{escape_html, inline_html};
+pub use crate::escape::escape_markup as escape_html;
+pub use inline::inline_html;
 
 use crate::style::{
     ALT_SHADE, BORDER_SHADE, CARD_SHADE, LEVEL_COLORS, checkbox_emoji, is_alt_band, level_number_of,
