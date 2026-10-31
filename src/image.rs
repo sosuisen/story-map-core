@@ -269,12 +269,22 @@ impl Grid {
             let width = &mut column_widths[first_card_column + cell.column];
             *width = width.max(card_width + 2.0 * CARD_MARGIN);
         }
+        let first_row_by_level = starts_of(&map.rows_by_level, 0);
+        // Like CSS Grid, a row without cards or titles has no height. Only the dashed line of the band shows
         let row_count: usize = map.rows_by_level.iter().sum();
-        let row_heights = vec![ROW_HEIGHT; row_count];
+        let mut row_heights = vec![BAND_BORDER; row_count];
+        for cell in &map.cells {
+            row_heights[first_row_by_level[cell.level] + cell.row_in_level] = ROW_HEIGHT;
+        }
+        for (title, row) in map.level_titles.iter().zip(&first_row_by_level) {
+            if !title.is_empty() {
+                row_heights[*row] = ROW_HEIGHT;
+            }
+        }
         Self {
             column_lefts: starts_of(&column_widths, PAGE_PADDING),
             row_tops: starts_of(&row_heights, PAGE_PADDING),
-            first_row_by_level: starts_of(&map.rows_by_level, 0),
+            first_row_by_level,
             width: 2.0 * PAGE_PADDING + column_widths.iter().sum::<f32>(),
             height: 2.0 * PAGE_PADDING + row_heights.iter().sum::<f32>(),
             column_widths,
