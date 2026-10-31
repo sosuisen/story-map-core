@@ -5,8 +5,9 @@
 
 use std::sync::LazyLock;
 
+use resvg::tiny_skia::Pixmap;
 use resvg::usvg::{FontFamily, FontStyle, Group, Node, Options, Paint, Path, Rect, Text, Tree};
-use story_map_core::image::{ImageOptions, render_svg};
+use story_map_core::image::{ImageOptions, render_png, render_svg};
 use story_map_core::parse;
 
 // Loading the system fonts takes time, so the tests share one set
@@ -381,4 +382,27 @@ fn xml_special_characters_are_escaped() {
     assert!(contents.contains(&"A < B & \"C\"".to_string()));
     assert!(contents.contains(&"x < y & 'z' > \"w\"".to_string()));
     assert!(contents.contains(&"a&b".to_string()));
+}
+
+// PNGは、SVGと同じ大きさに倍率を掛けた画像になる
+#[test]
+fn the_png_is_the_svg_size_times_the_scale() {
+    let outline = "- Activity
+  - Task";
+    let size = tree_of(&svg_of(outline)).size();
+    let options = ImageOptions {
+        scale: 2.0,
+        ..IMAGE_OPTIONS.clone()
+    };
+
+    let png = Pixmap::decode_png(&render_png(&parse(outline), &options)).unwrap();
+
+    assert_eq!(png.width(), (size.width() * 2.0).ceil() as u32);
+    assert_eq!(png.height(), (size.height() * 2.0).ceil() as u32);
+    // 背景は白で塗られる
+    let corner = png.pixel(0, 0).unwrap();
+    assert_eq!(
+        (corner.red(), corner.green(), corner.blue(), corner.alpha()),
+        (255, 255, 255, 255)
+    );
 }
