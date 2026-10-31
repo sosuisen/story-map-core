@@ -34,6 +34,27 @@ fn the_css_has_the_colors_of_each_level() {
     assert!(css.contains(".card.level4 {"));
 }
 
+// カードには幅の上限（既定240px）がつき、`--card-max-width`で変えられる。長い語も折り返す
+#[test]
+fn cards_have_a_maximum_width_that_a_variable_can_change() {
+    let css = map_css();
+
+    assert!(css.contains("max-width: var(--card-max-width, 240px);"));
+    assert!(css.contains("overflow-wrap: anywhere;"));
+}
+
+// 同じ行のカードは、行の高さまで伸びて、同じ高さになる
+#[test]
+fn cards_stretch_to_the_height_of_their_row() {
+    let css = map_css();
+
+    let card_rule = css
+        .lines()
+        .find(|line| line.starts_with(".card {"))
+        .unwrap();
+    assert!(card_rule.contains("align-self: stretch;"));
+}
+
 // インラインのMarkdownは、markdown-itと同じHTMLになる
 #[test]
 fn inline_markdown_is_rendered_like_markdown_it() {

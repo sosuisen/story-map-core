@@ -64,6 +64,59 @@ impl TextSpec {
         }
     }
 
+    /// The pieces that a line may break between: words, spaces, and single CJK characters.
+    /// Punctuation and brackets stay with their neighbors, so that they do not start or end a line.
+    /// Each piece has one run. Spaces in a row become one space
+    pub(super) fn pieces(&self) -> Vec<TextSpec> {
+        self.runs
+            .iter()
+            .flat_map(split_run)
+            .map(|run| Self {
+                runs: vec![run],
+                font_size: self.font_size,
+                bold: self.bold,
+            })
+            .collect()
+    }
+
+    /// Each character as a text of its own, in the font of its run
+    pub(super) fn characters(&self) -> Vec<TextSpec> {
+        self.runs
+            .iter()
+            .flat_map(|run| {
+                run.text.chars().map(|ch| Run {
+                    text: ch.to_string(),
+                    ..run.clone()
+                })
+            })
+            .map(|run| Self {
+                runs: vec![run],
+                font_size: self.font_size,
+                bold: self.bold,
+            })
+            .collect()
+    }
+
+    pub(super) fn is_space(&self) -> bool {
+        self.runs.iter().all(|run| run.text == " ")
+    }
+
+    /// The pieces of one line as one text. Neighboring runs of the same font become one run
+    pub(super) fn joined(pieces: &[TextSpec]) -> TextSpec {
+        let mut runs: Vec<Run> = Vec::new();
+        for run in pieces.iter().flat_map(|piece| &piece.runs) {
+            match runs.last_mut() {
+                Some(last) if last.same_font(run) => last.text.push_str(&run.text),
+                _ => runs.push(run.clone()),
+            }
+        }
+        Self {
+            runs,
+            font_size: pieces.first().map_or(0.0, |piece| piece.font_size),
+            bold: pieces.first().is_some_and(|piece| piece.bold),
+        }
+    }
+
     // A `<text>` element with its baseline at (x, y)
     pub(super) fn to_svg(&self, x: f32, y: f32, extra: &str) -> String {
         let weight = if self.bold {
@@ -77,6 +130,75 @@ impl TextSpec {
             self.font_size
         )
     }
+}
+
+impl Run {
+    fn same_font(&self, other: &Run) -> bool {
+        (self.bold, self.italic, self.code) == (other.bold, other.italic, other.code)
+    }
+}
+
+fn split_run(run: &Run) -> Vec<Run> {
+    let piece = |text: &str| Run {
+        text: text.to_string(),
+        ..run.clone()
+    };
+    // An opening bracket must not end a line, so it stays with the piece after it
+    let push = |pieces: &mut Vec<Run>, text: &str| match pieces.last_mut() {
+        Some(last) if last.text.ends_with(NO_LINE_END) => last.text.push_str(text),
+        _ => pieces.push(piece(text)),
+    };
+    let mut pieces: Vec<Run> = Vec::new();
+    let mut word = String::new();
+    let flush = |word: &mut String, pieces: &mut Vec<Run>| {
+        if !word.is_empty() {
+            push(pieces, word);
+            word.clear();
+        }
+    };
+    for ch in run.text.chars() {
+        if ch.is_whitespace() {
+            flush(&mut word, &mut pieces);
+            if pieces.last().is_none_or(|last| last.text != " ") {
+                pieces.push(piece(" "));
+            }
+        } else if NO_LINE_START.contains(&ch) && !word.is_empty() {
+            word.push(ch);
+        } else if NO_LINE_START.contains(&ch)
+            && let Some(last) = pieces.last_mut().filter(|last| last.text != " ")
+        {
+            // Punctuation must not start a line, so it stays with the piece before it
+            last.text.push(ch);
+        } else if is_cjk(ch) {
+            flush(&mut word, &mut pieces);
+            push(&mut pieces, &ch.to_string());
+        } else {
+            word.push(ch);
+        }
+    }
+    flush(&mut word, &mut pieces);
+    pieces
+}
+
+// The characters that must not start a line, in the Japanese rules of line breaking (kinsoku)
+const NO_LINE_START: &[char] = &[
+    '、', '。', '，', '．', '・', '：', '；', '？', '！', 'ー', '〜', '々', '）', '」', '』', '】',
+    '〕', '〉', '》', '］', '｝', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'っ', 'ゃ', 'ゅ', 'ょ', 'ゎ', 'ァ',
+    'ィ', 'ゥ', 'ェ', 'ォ', 'ッ', 'ャ', 'ュ', 'ョ', 'ヮ', 'ヵ', 'ヶ',
+];
+
+// The characters that must not end a line
+const NO_LINE_END: &[char] = &['（', '「', '『', '【', '〔', '〈', '《', '［', '｛'];
+
+// Chinese, Japanese, and Korean text has no spaces, so a line may break between any two of these characters
+fn is_cjk(ch: char) -> bool {
+    matches!(ch,
+        '\u{3000}'..='\u{30FF}' // CJK symbols, Hiragana, and Katakana
+        | '\u{3400}'..='\u{4DBF}' // CJK Extension A
+        | '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
+        | '\u{AC00}'..='\u{D7AF}' // Hangul syllables
+        | '\u{FF00}'..='\u{FFEF}' // Fullwidth forms
+    )
 }
 
 fn run_to_svg(run: &Run) -> String {

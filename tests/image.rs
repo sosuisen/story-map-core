@@ -112,15 +112,13 @@ fn card_box(tree: &Tree, index: usize) -> Rect {
 // 長い文字のカードの列は、短い文字の列より広くなる
 #[test]
 fn a_column_with_a_long_text_is_wider() {
-    let tree = tree_of(&svg_of(
-        "- Short\n- A much longer activity name than the others\n- Short",
-    ));
+    let tree = tree_of(&svg_of("- Short\n- A longer activity name\n- Short"));
 
     let short = card_box(&tree, 0);
     let long = card_box(&tree, 1);
     assert!(long.width() > short.width());
     // 文字は、カードの枠に収まる
-    assert!(text_box(&tree, "A much longer activity name than the others").right() < long.right());
+    assert!(text_box(&tree, "A longer activity name").right() < long.right());
     // 広い列の分だけ、右の列は右にずれる
     assert!(long.right() < card_box(&tree, 2).left());
 }
@@ -139,6 +137,116 @@ fn cards_in_the_same_column_have_the_same_width() {
     let tree = tree_of(&svg_of("- Activity\n\t- A task with a much longer name"));
 
     assert_eq!(card_box(&tree, 0).width(), card_box(&tree, 1).width());
+}
+
+const LONG_TEXT: &str = "A card with a long text that does not fit on one line of the card";
+
+// The lines of the first card, which wraps at the default maximum width. Each line is inside the card
+fn wrapped_lines(outline: &str) -> Vec<String> {
+    let tree = tree_of(&svg_of(outline));
+    let card = card_box(&tree, 0);
+    assert_eq!(card.width(), 240.0);
+    let lines = texts_of(&tree);
+    assert!(lines.iter().all(|(_, line)| contains(card, *line)));
+    lines.into_iter().map(|(text, _)| text).collect()
+}
+
+// 上限より長い文のカードは、上限の幅（既定240px）で、複数の行に折り返す
+#[test]
+fn a_long_card_wraps_at_the_maximum_width() {
+    let lines = wrapped_lines(&format!("- {LONG_TEXT}"));
+
+    assert!(lines.len() > 1);
+    // 行をつなぐと、元の文に戻る
+    assert_eq!(lines.join(" "), LONG_TEXT);
+}
+
+// 上限は、ImageOptionsで変えられる
+#[test]
+fn the_maximum_width_can_be_changed_in_the_options() {
+    let options = ImageOptions {
+        max_card_width: 400.0,
+        ..IMAGE_OPTIONS.clone()
+    };
+    let tree = tree_of(&render_svg(&parse(&format!("- {LONG_TEXT}")), &options));
+
+    assert_eq!(card_box(&tree, 0).width(), 400.0);
+}
+
+// 日本語の文は、文字の間で折り返す
+#[test]
+fn a_japanese_text_wraps_between_characters() {
+    let text = "日本語の文には空白がないので、どの文字の間でも折り返してカードに収める";
+
+    let lines = wrapped_lines(&format!("- {text}"));
+
+    assert!(lines.len() > 1);
+    assert_eq!(lines.concat(), text);
+}
+
+// 日本語の文の行は、カードの幅を使い切ってから折り返す
+#[test]
+fn a_japanese_line_fills_the_card_before_it_wraps() {
+    let tree = tree_of(&svg_of(
+        "- 日本語の文には空白がないので、どの文字の間でも折り返してカードに収める",
+    ));
+
+    let card = card_box(&tree, 0);
+    let (_, first_line) = &texts_of(&tree)[0];
+    // 1行には、あと2文字（16pxの全角文字）を足す余白が残らない
+    let inner_width = card.width() - 2.0 * (8.0 + 2.0);
+    assert!(first_line.width() > inner_width - 2.0 * 16.0);
+}
+
+// 句読点や閉じ括弧は行の先頭に来ず、開き括弧は行の末尾に来ない
+#[test]
+fn punctuation_does_not_start_a_line_and_an_opening_bracket_does_not_end_one() {
+    let text = "あ。い、う」え）お。か、き」く）け。こ、さ「し（す。せ、そ「た（ち。つ、て「と（な。に、ぬ「ね（の。";
+
+    let lines = wrapped_lines(&format!("- {text}"));
+
+    assert!(lines.len() > 2);
+    assert_eq!(lines.concat(), text);
+    for line in &lines {
+        assert!(!line.starts_with(['。', '、', '」', '）']), "{lines:?}");
+        assert!(!line.ends_with(['「', '（']), "{lines:?}");
+    }
+}
+
+// 上限より長い1語は、語の途中で折り返す
+#[test]
+fn a_word_longer_than_the_maximum_breaks_inside() {
+    let word = "https://example.com/a/very/long/address/that/has/no/spaces/at/all";
+
+    let lines = wrapped_lines(&format!("- {word}"));
+
+    assert!(lines.len() > 1);
+    assert_eq!(lines.concat(), word);
+}
+
+// タグも、本文に続けて折り返す
+#[test]
+fn tags_wrap_after_the_text() {
+    let tree = tree_of(&svg_of("- A task with tags #first #second #third #fourth"));
+
+    let card = card_box(&tree, 0);
+    assert_eq!(card.width(), 240.0);
+    let last_tag = node_box(&tree, "card-0-tag-3");
+    assert!(text_box(&tree, "A task with tags").bottom() < last_tag.top());
+    assert!(contains(card, last_tag));
+}
+
+// 折り返したカードの行は高くなり、同じ行のカードは同じ高さになる
+#[test]
+fn a_row_with_a_wrapped_card_is_taller_and_its_cards_match() {
+    let tree = tree_of(&svg_of(&format!("- Short\n- {LONG_TEXT}")));
+    let one_line = card_box(&tree_of(&svg_of("- Short")), 0);
+
+    let short = card_box(&tree, 0);
+    let long = card_box(&tree, 1);
+    assert!(long.height() > one_line.height());
+    assert_eq!(short.top(), long.top());
+    assert_eq!(short.height(), long.height());
 }
 
 fn color_hex(paint: &Paint) -> String {
