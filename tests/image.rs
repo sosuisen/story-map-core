@@ -311,3 +311,14 @@ fn the_title_and_the_leading_notes_are_drawn_above_the_map() {
     // タイトルは、ノートより大きな文字で描かれる
     assert!(title.height() > first.height());
 }
+
+// リストの下のノートは、マップの下に描かれる
+#[test]
+fn the_trailing_notes_are_drawn_below_the_map() {
+    let tree = tree_of(&svg_of("- Activity\n\t- Task\n\nBelow the map."));
+
+    let below = text_box(&tree, "Below the map.");
+    let last_band = node_box(&tree, "band-2");
+    assert!(last_band.bottom() < below.top());
+    assert!(below.bottom() <= tree.size().height());
+}
