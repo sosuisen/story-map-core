@@ -6,6 +6,8 @@
 use comrak::nodes::{NodeLink, NodeValue};
 use comrak::{Arena, Node, Options, parse_document};
 
+use crate::escape::escape_markup as escape_html;
+
 /// Render one piece of inline Markdown as HTML. Block syntax such as "# " or "1. " at the start stays text
 pub fn inline_html(text: &str) -> String {
     let after_leading = text.trim_start();
@@ -197,12 +199,4 @@ fn normalized_url(url: &str) -> String {
         }
     }
     encoded
-}
-
-/// Escape the characters that have a meaning in HTML
-pub fn escape_html(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }

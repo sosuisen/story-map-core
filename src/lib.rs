@@ -3,12 +3,20 @@
 //! [`parse`] reads the outline and lays out the cards on a grid. The result, [`StoryMap`], holds only data.
 //! Texts stay raw Markdown, so that each app can render them in its own way.
 //! With the `html` feature, the [`html`] module renders the map as HTML.
+//! With the `image` feature, the [`image`] module renders the map as an SVG or PNG image.
 
+#[cfg(any(feature = "html", feature = "image"))]
+mod escape;
 mod layout;
+#[cfg(any(feature = "html", feature = "image"))]
+mod style;
 mod tokens;
 
 #[cfg(feature = "html")]
 pub mod html;
+
+#[cfg(feature = "image")]
+pub mod image;
 
 pub use layout::parse;
 
@@ -57,7 +65,7 @@ pub struct StoryMap {
 }
 
 // Run the code examples in the README as doctests, so that they keep working
-// The examples in the README use the html feature
-#[cfg(all(doctest, feature = "html"))]
+// The examples in the README use every feature
+#[cfg(all(doctest, feature = "html", feature = "image"))]
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;

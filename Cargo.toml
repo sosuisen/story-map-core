@@ -1,10 +1,10 @@
 [package]
 name = "story-map-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Hidekazu Kubota"]
 license = "MIT"
-description = "Turn a Markdown outline into a user story map, and render the map as HTML"
+description = "Turn a Markdown outline into a user story map, and render the map as HTML or an image"
 repository = "https://github.com/sosuisen/story-map-core"
 readme = "README.md"
 keywords = ["story-map", "markdown", "outline", "agile"]
@@ -14,7 +14,17 @@ categories = ["text-processing", "parser-implementations"]
 default = ["html"]
 # Render the map as HTML. An app that draws the map with its own UI can turn this off
 html = []
+# Render the map as an SVG or PNG image. The text is measured with real fonts
+image = ["dep:resvg"]
 
 [dependencies]
 comrak = { version = "0.59.0", default-features = false }
 regex = "1.13.1"
+resvg = { version = "0.49.0", optional = true, default-features = false, features = ["text", "system-fonts", "memmap-fonts"] }
+
+[dev-dependencies]
+proptest = "1.12.0"
+
+# Text layout in resvg is slow without optimization, and the image tests render many maps
+[profile.dev.package."*"]
+opt-level = 2

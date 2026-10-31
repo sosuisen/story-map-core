@@ -5,14 +5,18 @@
 
 mod inline;
 
-pub use inline::{escape_html, inline_html};
+pub use crate::escape::escape_markup as escape_html;
+pub use inline::inline_html;
 
+use crate::style::{
+    ALT_SHADE, BORDER_SHADE, CARD_SHADE, LEVEL_COLORS, checkbox_emoji, is_alt_band, level_number_of,
+};
 use crate::{Card, StoryMap};
 
 /// The CSS rules that give the map its look. Put them in a `<style>` element of the page
 pub fn map_css() -> String {
     format!(
-        r#":root {{ --level1-color: #e0efff; --level2-color: #e0ffee; --level3-color: #ffe0e9; --level4-color: #fff3e0; --card-shade: 0.93; --border-shade: 0.6; --alt-shade: 1.04; }}
+        r#":root {{ {}--card-shade: {CARD_SHADE}; --border-shade: {BORDER_SHADE}; --alt-shade: {ALT_SHADE}; }}
 body {{ background: white; color: black; }}
 .map-zoom {{ width: fit-content; display: flow-root; padding: 16px; }}
 .map-grid {{ display: grid; gap: 0; justify-content: start; align-items: start; }}
@@ -24,8 +28,17 @@ body {{ background: white; color: black; }}
 .row-label {{ padding: 4px 8px; margin: 8px; color: #888; white-space: nowrap; }}
 .row-band {{ align-self: stretch; justify-self: stretch; border-bottom: 2px dashed; }}
 .row-band.level4.alt {{ background: hsl(from var(--level4-color) h s calc(l * var(--alt-shade))); }}"#,
+        level_color_variables(),
         level_color_rules()
     )
+}
+
+fn level_color_variables() -> String {
+    LEVEL_COLORS
+        .iter()
+        .enumerate()
+        .map(|(index, color)| format!("--level{}-color: {color}; ", index + 1))
+        .collect()
 }
 
 // The CSS rules that give each level its colors. The band is painted in the base color of the level.
@@ -115,16 +128,13 @@ fn render_notes(class_name: &str, notes: &[String]) -> String {
 
 fn render_card(card: &Card, level: usize, position: &str) -> String {
     let mut classes = format!("card level{}", level_number_of(level));
-    let mut text = String::new();
     if card.done {
         classes.push_str(" done");
-        text.push_str("✅ ");
     }
     if card.todo {
         classes.push_str(" todo");
-        text.push_str("⬜ ");
     }
-    text.push_str(&inline_html(&card.text));
+    let text = format!("{}{}", checkbox_emoji(card), inline_html(&card.text));
     let tags: String = card
         .tags
         .iter()
@@ -133,15 +143,10 @@ fn render_card(card: &Card, level: usize, position: &str) -> String {
     format!(r#"<div class="{classes}" style="{position}">{text}{tags}</div>"#)
 }
 
-// Levels have no names. They are numbered from 1 at the top, and level 4 and below all count as level 4
-fn level_number_of(level: usize) -> usize {
-    (level + 1).min(4)
-}
-
-// The band class for a level. From level 4 down, every second level is a bit lighter
+// The band class for a level
 fn band_class_of(level: usize) -> String {
     let base = format!("level{}", level_number_of(level));
-    if level >= 3 && (level - 3) % 2 == 1 {
+    if is_alt_band(level) {
         format!("{base} alt")
     } else {
         base
