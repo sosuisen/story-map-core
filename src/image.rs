@@ -9,7 +9,7 @@ pub use resvg::usvg::fontdb;
 use resvg::usvg::{self, Tree};
 
 use crate::StoryMap;
-use crate::style::{BORDER_SHADE, CARD_SHADE, level_color, shaded};
+use crate::style::{ALT_SHADE, BORDER_SHADE, CARD_SHADE, is_alt_band, level_color, shaded};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -93,9 +93,14 @@ fn render_bands(map: &StoryMap, grid: &Grid) -> String {
             let top = grid.row_tops[first_row];
             let height: f32 = grid.row_heights[first_row..first_row + rows].iter().sum();
             let base = level_color(level);
+            let fill = if is_alt_band(level) {
+                shaded(base, ALT_SHADE)
+            } else {
+                base
+            };
             let line_y = top + height - BAND_BORDER / 2.0;
             format!(
-                r#"<rect id="band-{level}" x="{left}" y="{top}" width="{width}" height="{height}" fill="{base}"/><line x1="{left}" y1="{line_y}" x2="{}" y2="{line_y}" stroke="{}" stroke-width="{BAND_BORDER}" stroke-dasharray="6 6"/>"#,
+                r#"<rect id="band-{level}" x="{left}" y="{top}" width="{width}" height="{height}" fill="{fill}"/><line x1="{left}" y1="{line_y}" x2="{}" y2="{line_y}" stroke="{}" stroke-width="{BAND_BORDER}" stroke-dasharray="6 6"/>"#,
                 left + width,
                 shaded(base, CARD_SHADE)
             )
