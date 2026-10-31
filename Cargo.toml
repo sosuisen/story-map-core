@@ -1,0 +1,20 @@
+[package]
+name = "story-map-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["Hidekazu Kubota"]
+license = "MIT"
+description = "Turn a Markdown outline into a user story map, and render the map as HTML"
+repository = "https://github.com/sosuisen/story-map-core"
+readme = "README.md"
+keywords = ["story-map", "markdown", "outline", "agile"]
+categories = ["text-processing", "parser-implementations"]
+
+[features]
+default = ["html"]
+# Render the map as HTML. An app that draws the map with its own UI can turn this off
+html = []
+
+[dependencies]
+comrak = { version = "0.59.0", default-features = false }
+regex = "1.13.1"
