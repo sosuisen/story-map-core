@@ -116,23 +116,6 @@ impl TextSpec {
         }
     }
 
-    // The same text between two marks, and the two marks alone
-    fn marked(&self) -> [TextSpec; 2] {
-        let mark = Run {
-            text: MARK.to_string(),
-            ..Run::default()
-        };
-        let spec = |runs| Self {
-            runs,
-            font_size: self.font_size,
-            bold: self.bold,
-        };
-        let mut runs = vec![mark.clone()];
-        runs.extend(self.runs.iter().cloned());
-        runs.push(mark.clone());
-        [spec(runs), spec(vec![mark.clone(), mark])]
-    }
-
     // A `<text>` element with its baseline at (x, y)
     pub(super) fn to_svg(&self, x: f32, y: f32, extra: &str) -> String {
         let weight = if self.bold {
@@ -266,19 +249,6 @@ fn collect_runs(node: Node<'_>, style: &Run, runs: &mut Vec<Run>) {
             _ => collect_runs(child, style, runs),
         }
     }
-}
-
-// A glyph with ink on both sides, so that its box shows where the text between two marks starts and ends
-const MARK: &str = "|";
-
-// The distance that each text moves the pen, spaces included.
-// The box of a text leaves out the spaces at its ends, so each text is measured between two marks
-pub(super) fn measure_advances(texts: &[TextSpec], options: &ImageOptions) -> Vec<f32> {
-    let marked: Vec<TextSpec> = texts.iter().flat_map(TextSpec::marked).collect();
-    measure(&marked, options)
-        .chunks(2)
-        .map(|pair| pair[0] - pair[1])
-        .collect()
 }
 
 // The width of each text when it is drawn with the fonts

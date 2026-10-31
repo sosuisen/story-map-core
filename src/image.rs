@@ -16,7 +16,7 @@ use crate::style::{
 };
 use crate::{Cell, StoryMap};
 use layout::{Flow, Grid};
-use text::{TextSpec, measure, measure_advances};
+use text::{TextSpec, measure};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -209,52 +209,24 @@ pub fn render_png(map: &StoryMap, options: &ImageOptions) -> Vec<u8> {
     pixmap.encode_png().expect("a pixmap can be encoded as png")
 }
 
-/// One thing on a line of a card
-enum Item {
-    Text(TextSpec),
-    // A tag with the width of its text
-    Tag(TextSpec, f32),
+/// One line of a card: the text, then the tags after it
+#[derive(Default)]
+struct Line {
+    text: Vec<TextSpec>,
+    // Each tag with its left edge from the start of the line, and the width of its text
+    tags: Vec<(f32, TextSpec, f32)>,
+    width: f32,
 }
 
-// A word that is wider than a line is cut into characters, like CSS `overflow-wrap: anywhere`
-fn break_long_words(
-    cards: Vec<Vec<(TextSpec, f32)>>,
-    line_width: f32,
-    options: &ImageOptions,
-) -> Vec<Vec<(TextSpec, f32)>> {
-    let too_long = |(_, advance): &(TextSpec, f32)| *advance > line_width;
-    let characters: Vec<TextSpec> = cards
-        .iter()
-        .flatten()
-        .filter(|piece| too_long(piece))
-        .flat_map(|(piece, _)| piece.characters())
-        .collect();
-    let mut advances = measure_advances(&characters, options).into_iter();
-    cards
-        .into_iter()
-        .map(|pieces| {
-            pieces
-                .into_iter()
-                .flat_map(|piece| {
-                    if too_long(&piece) {
-                        piece
-                            .0
-                            .characters()
-                            .into_iter()
-                            .map(|character| (character, advances.next().unwrap_or_default()))
-                            .collect()
-                    } else {
-                        vec![piece]
-                    }
-                })
-                .collect()
-        })
-        .collect()
+impl Line {
+    fn is_empty(&self) -> bool {
+        self.text.is_empty() && self.tags.is_empty()
+    }
 }
 
-/// The lines of a card. Each item has its left edge, measured from the start of the line
+/// The lines of a card
 struct CardContent {
-    lines: Vec<Vec<(f32, Item)>>,
+    lines: Vec<Line>,
     // The width of the widest line
     width: f32,
     max_card_width: f32,
@@ -262,8 +234,9 @@ struct CardContent {
 
 impl CardContent {
     fn measure_all(map: &StoryMap, options: &ImageOptions) -> Vec<Self> {
+        let line_width = options.max_card_width - 2.0 * (CARD_PADDING_X + CARD_BORDER);
         // The text of each card with its checkbox as an emoji, cut where a line may break
-        let pieces: Vec<Vec<TextSpec>> = map
+        let pieces = map
             .cells
             .iter()
             .map(|cell| {
@@ -276,78 +249,28 @@ impl CardContent {
             .flat_map(|cell| &cell.card.tags)
             .map(|tag| TextSpec::new(tag, TAG_FONT_SIZE))
             .collect();
-        let mut advances = measure_advances(&pieces.concat(), options).into_iter();
-        let pieces = pieces
-            .into_iter()
-            .map(|pieces| {
-                pieces
-                    .into_iter()
-                    .map(|piece| (piece, advances.next().unwrap_or_default()))
-                    .collect()
-            })
-            .collect();
-        let line_width = options.max_card_width - 2.0 * (CARD_PADDING_X + CARD_BORDER);
-        let pieces = break_long_words(pieces, line_width, options);
-        let mut tag_widths = measure(&tags, options).into_iter();
-        let mut tags = tags.into_iter();
+        let mut tags = tags
+            .iter()
+            .cloned()
+            .zip(measure(&tags, options))
+            .collect::<Vec<_>>()
+            .into_iter();
         map.cells
             .iter()
-            .zip(pieces)
-            .map(|(cell, pieces)| {
-                let mut items: Vec<(Item, f32)> = pieces
-                    .into_iter()
-                    .map(|(piece, advance)| (Item::Text(piece), advance))
-                    .collect();
-                for _ in &cell.card.tags {
-                    let width = tag_widths.next().unwrap_or_default();
-                    let tag = tags.next().expect("one text per tag");
-                    items.push((
-                        Item::Tag(tag, width),
-                        TAG_MARGIN + width + 2.0 * TAG_PADDING_X,
-                    ));
+            .zip(wrap_all(pieces, line_width, options))
+            .map(|(cell, mut lines)| {
+                place_tags(
+                    &mut lines,
+                    tags.by_ref().take(cell.card.tags.len()),
+                    line_width,
+                );
+                Self {
+                    width: lines.iter().map(|line| line.width).fold(0.0, f32::max),
+                    lines,
+                    max_card_width: options.max_card_width,
                 }
-                Self::wrap(items, options.max_card_width)
             })
             .collect()
-    }
-
-    // Fill each line with items until the next one would pass the width.
-    // A space at the start or the end of a line is dropped, like in CSS
-    fn wrap(items: Vec<(Item, f32)>, max_card_width: f32) -> Self {
-        let line_width = max_card_width - 2.0 * (CARD_PADDING_X + CARD_BORDER);
-        let mut lines: Vec<Vec<(f32, Item)>> = vec![Vec::new()];
-        let mut widths = vec![0.0_f32];
-        let mut space: Option<(Item, f32)> = None;
-        for (item, advance) in items {
-            if matches!(&item, Item::Text(text) if text.is_space()) {
-                space = Some((item, advance));
-                continue;
-            }
-            let space_advance = space.as_ref().map_or(0.0, |(_, advance)| *advance);
-            let started = lines.last().is_some_and(|line| !line.is_empty());
-            let used = widths.last().copied().unwrap_or_default();
-            if started && used + space_advance + advance > line_width {
-                lines.push(Vec::new());
-                widths.push(0.0);
-                space = None;
-            }
-            let (Some(line), Some(width)) = (lines.last_mut(), widths.last_mut()) else {
-                unreachable!("there is always a line");
-            };
-            if let Some((space, space_advance)) = space.take()
-                && !line.is_empty()
-            {
-                line.push((*width, space));
-                *width += space_advance;
-            }
-            line.push((*width, item));
-            *width += advance;
-        }
-        Self {
-            lines,
-            width: widths.into_iter().fold(0.0, f32::max),
-            max_card_width,
-        }
     }
 
     // Like CSS min-width and max-width, where the minimum wins. A card that wraps fills the maximum width
@@ -363,6 +286,144 @@ impl CardContent {
     // The height that the lines need. The row may make the card taller
     fn card_height(&self, border: f32) -> f32 {
         self.lines.len() as f32 * LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + border)
+    }
+}
+
+// Fill each line with pieces until the next one would pass the width.
+// A line is measured as a whole, not piece by piece. usvg draws a text that has a Japanese character
+// all in the fallback font, so the width of a piece depends on the rest of the line.
+// Each measurement is slow, so all cards are wrapped together and each step measures one text of every card
+fn wrap_all(cards: Vec<Vec<TextSpec>>, line_width: f32, options: &ImageOptions) -> Vec<Vec<Line>> {
+    let mut wrappings: Vec<Wrapping> = cards
+        .into_iter()
+        .map(|pieces| Wrapping {
+            pieces,
+            start: 0,
+            lines: Vec::new(),
+            search: None,
+            line_width,
+        })
+        .collect();
+    loop {
+        let (indexes, texts): (Vec<usize>, Vec<TextSpec>) = wrappings
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(index, wrapping)| wrapping.next_text().map(|text| (index, text)))
+            .unzip();
+        if texts.is_empty() {
+            break;
+        }
+        for (index, width) in indexes.into_iter().zip(measure(&texts, options)) {
+            wrappings[index].take_width(width);
+        }
+    }
+    wrappings
+        .into_iter()
+        .map(|wrapping| wrapping.lines)
+        .collect()
+}
+
+/// The wrapping of one card, one measurement at a time
+struct Wrapping {
+    pieces: Vec<TextSpec>,
+    // The first piece of the current line
+    start: usize,
+    lines: Vec<Line>,
+    // A binary search for the end of the current line: the most pieces known to fit, their width,
+    // and the fewest known not to fit. Most cards fit on one line, so the search starts after the whole rest fails
+    search: Option<(usize, f32, usize)>,
+    line_width: f32,
+}
+
+impl Wrapping {
+    // The text to measure next, or None when the card is done.
+    // A space at the start or the end of a line is dropped, like in CSS
+    fn next_text(&mut self) -> Option<TextSpec> {
+        loop {
+            while self.pieces.get(self.start).is_some_and(TextSpec::is_space) {
+                self.start += 1;
+            }
+            let rest = &self.pieces[self.start..];
+            if rest.is_empty() {
+                return None;
+            }
+            match self.search {
+                None => return Some(TextSpec::joined(rest)),
+                Some((fits, _, too_many)) if too_many - fits > 1 => {
+                    return Some(TextSpec::joined(&rest[..(fits + too_many) / 2]));
+                }
+                Some((0, _, _)) => {
+                    // A word that is wider than a line is cut into characters, like CSS `overflow-wrap: anywhere`.
+                    // A single character cannot be cut, and passes the width
+                    let characters = rest[0].characters();
+                    if characters.len() > 1 {
+                        self.pieces.splice(self.start..=self.start, characters);
+                        self.search = None;
+                    } else {
+                        self.end_line(1, self.line_width);
+                    }
+                }
+                Some((fits, width, _)) => self.end_line(fits, width),
+            }
+        }
+    }
+
+    fn take_width(&mut self, width: f32) {
+        let fits = width <= self.line_width;
+        self.search = match self.search {
+            None if fits => {
+                self.end_line(self.pieces.len() - self.start, width);
+                None
+            }
+            None => Some((0, 0.0, self.pieces.len() - self.start)),
+            Some((known, known_width, too_many)) => {
+                let middle = (known + too_many) / 2;
+                if fits {
+                    Some((middle, width, too_many))
+                } else {
+                    Some((known, known_width, middle))
+                }
+            }
+        };
+    }
+
+    fn end_line(&mut self, count: usize, width: f32) {
+        let mut text = self.pieces[self.start..self.start + count].to_vec();
+        while text.last().is_some_and(TextSpec::is_space) {
+            text.pop();
+        }
+        self.lines.push(Line {
+            text,
+            tags: Vec::new(),
+            width,
+        });
+        self.start += count;
+        self.search = None;
+    }
+}
+
+// The tags follow the text, and wrap onto new lines in the same way
+fn place_tags(
+    lines: &mut Vec<Line>,
+    tags: impl IntoIterator<Item = (TextSpec, f32)>,
+    line_width: f32,
+) {
+    if lines.is_empty() {
+        lines.push(Line::default());
+    }
+    for (tag, width) in tags {
+        let advance = TAG_MARGIN + width + 2.0 * TAG_PADDING_X;
+        if lines
+            .last()
+            .is_some_and(|line| !line.is_empty() && line.width + advance > line_width)
+        {
+            lines.push(Line::default());
+        }
+        let Some(line) = lines.last_mut() else {
+            unreachable!("there is always a line");
+        };
+        line.tags.push((line.width, tag, width));
+        line.width += advance;
     }
 }
 
@@ -422,48 +483,28 @@ fn render_card(index: usize, cell: &Cell, content: &CardContent, grid: &Grid) ->
     svg
 }
 
-// The pieces of text between two tags are drawn as one text
 fn render_line(
     card: usize,
-    line: &[(f32, Item)],
+    line: &Line,
     left: f32,
     baseline: f32,
     tag_index: &mut usize,
 ) -> String {
-    let mut svg = String::new();
-    let mut texts: Vec<TextSpec> = Vec::new();
-    let mut texts_left = 0.0;
-    for (x, item) in line {
-        match item {
-            Item::Text(text) => {
-                if texts.is_empty() {
-                    texts_left = *x;
-                }
-                texts.push(text.clone());
-            }
-            Item::Tag(tag, tag_width) => {
-                svg.push_str(&render_texts(&mut texts, left + texts_left, baseline));
-                let tag_left = left + x + TAG_MARGIN;
-                let tag_width_with_padding = tag_width + 2.0 * TAG_PADDING_X;
-                svg.push_str(&format!(
-                    r#"<rect id="card-{card}-tag-{tag_index}" x="{tag_left}" y="{}" width="{tag_width_with_padding}" height="{TAG_HEIGHT}" rx="{TAG_RADIUS}" fill="white"/>{}"#,
-                    baseline - TAG_BASELINE,
-                    tag.to_svg(tag_left + TAG_PADDING_X, baseline, "")
-                ));
-                *tag_index += 1;
-            }
-        }
+    let mut svg = if line.text.is_empty() {
+        String::new()
+    } else {
+        TextSpec::joined(&line.text).to_svg(left, baseline, "")
+    };
+    for (x, tag, tag_width) in &line.tags {
+        let tag_left = left + x + TAG_MARGIN;
+        let tag_width_with_padding = tag_width + 2.0 * TAG_PADDING_X;
+        svg.push_str(&format!(
+            r#"<rect id="card-{card}-tag-{tag_index}" x="{tag_left}" y="{}" width="{tag_width_with_padding}" height="{TAG_HEIGHT}" rx="{TAG_RADIUS}" fill="white"/>{}"#,
+            baseline - TAG_BASELINE,
+            tag.to_svg(tag_left + TAG_PADDING_X, baseline, "")
+        ));
+        *tag_index += 1;
     }
-    svg.push_str(&render_texts(&mut texts, left + texts_left, baseline));
-    svg
-}
-
-fn render_texts(texts: &mut Vec<TextSpec>, left: f32, baseline: f32) -> String {
-    if texts.is_empty() {
-        return String::new();
-    }
-    let svg = TextSpec::joined(texts).to_svg(left, baseline, "");
-    texts.clear();
     svg
 }
 
