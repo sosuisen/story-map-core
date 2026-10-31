@@ -31,6 +31,21 @@ impl Default for ImageOptions {
 }
 
 /// Render the map as an SVG document
-pub fn render_svg(_map: &StoryMap, _options: &ImageOptions) -> String {
-    r#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="white"/></svg>"#.to_string()
+pub fn render_svg(map: &StoryMap, _options: &ImageOptions) -> String {
+    let texts: String = map
+        .cells
+        .iter()
+        .enumerate()
+        .map(|(index, cell)| {
+            format!(
+                r#"<text x="10" y="{}">{}</text>"#,
+                20 + index * 20,
+                cell.card.text
+            )
+        })
+        .collect();
+    let height = 20 + map.cells.len() * 20;
+    format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="400" height="{height}"><rect width="400" height="{height}" fill="white"/>{texts}</svg>"#
+    )
 }
