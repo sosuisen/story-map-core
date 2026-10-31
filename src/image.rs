@@ -15,7 +15,7 @@ use crate::style::{
 };
 use crate::{Cell, StoryMap};
 use layout::{Flow, Grid};
-use text::{TextSpec, measure, one_line};
+use text::{TextSpec, measure};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -80,7 +80,7 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
     let level_titles: Vec<TextSpec> = map
         .level_titles
         .iter()
-        .map(|title| TextSpec::new(title, FONT_SIZE))
+        .map(|title| TextSpec::markdown("", title, FONT_SIZE))
         .collect();
     let level_title_widths = measure(&level_titles, options);
     // The blocks are stacked from the top, like the HTML page: the title, the notes above, the grid, and the notes below
@@ -95,14 +95,14 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
     }
     for note in &map.leading_notes {
         let top = flow.place(LINE_HEIGHT, NOTE_MARGIN);
-        texts.push((TextSpec::new(&one_line(note), FONT_SIZE), top + BASELINE));
+        texts.push((TextSpec::markdown("", note, FONT_SIZE), top + BASELINE));
     }
     let grid_top = flow.place(0.0, 0.0);
     let grid = Grid::new(map, &contents, &level_title_widths, grid_top);
     flow.place(grid.height, 0.0);
     for note in &map.trailing_notes {
         let top = flow.place(LINE_HEIGHT, NOTE_MARGIN);
-        texts.push((TextSpec::new(&one_line(note), FONT_SIZE), top + BASELINE));
+        texts.push((TextSpec::markdown("", note, FONT_SIZE), top + BASELINE));
     }
     let specs: Vec<TextSpec> = texts.iter().map(|(spec, _)| spec.clone()).collect();
     let content_width = measure(&specs, options)
@@ -131,17 +131,18 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
 /// The texts inside a card, with their measured widths
 struct CardContent {
     // The text of the card with its checkbox as an emoji
-    text: String,
+    text: TextSpec,
     text_width: f32,
-    tags: Vec<(String, f32)>,
+    tags: Vec<(TextSpec, f32)>,
 }
 
 impl CardContent {
     fn measure_all(map: &StoryMap, options: &ImageOptions) -> Vec<Self> {
         let mut texts = Vec::new();
         for cell in &map.cells {
-            texts.push(TextSpec::new(
-                &format!("{}{}", checkbox_emoji(&cell.card), cell.card.text),
+            texts.push(TextSpec::markdown(
+                checkbox_emoji(&cell.card),
+                &cell.card.text,
                 FONT_SIZE,
             ));
             texts.extend(
@@ -152,11 +153,11 @@ impl CardContent {
             );
         }
         let mut widths = measure(&texts, options).into_iter();
-        let mut texts = texts.into_iter().map(|text| text.text);
+        let mut texts = texts.into_iter();
         map.cells
             .iter()
             .map(|cell| Self {
-                text: texts.next().unwrap_or_default(),
+                text: texts.next().expect("one text per card"),
                 text_width: widths.next().unwrap_or_default(),
                 tags: cell
                     .card
@@ -164,7 +165,7 @@ impl CardContent {
                     .iter()
                     .map(|_| {
                         (
-                            texts.next().unwrap_or_default(),
+                            texts.next().expect("one text per tag"),
                             widths.next().unwrap_or_default(),
                         )
                     })
@@ -219,17 +220,14 @@ fn render_card(index: usize, cell: &Cell, content: &CardContent, grid: &Grid) ->
     };
     let text_left = left + border + CARD_PADDING_X;
     let baseline = top + border + CARD_PADDING_Y + BASELINE;
-    let mut svg = format!(
-        r#"{frame}<text x="{text_left}" y="{baseline}" font-family="sans-serif" font-size="{FONT_SIZE}">{}</text>"#,
-        content.text
-    );
+    let mut svg = format!("{frame}{}", content.text.to_svg(text_left, baseline, ""));
     let mut tag_left = text_left + content.text_width + TAG_MARGIN;
     for (tag_index, (tag, tag_width)) in content.tags.iter().enumerate() {
         let tag_width_with_padding = tag_width + 2.0 * TAG_PADDING_X;
         svg.push_str(&format!(
-            r#"<rect id="card-{index}-tag-{tag_index}" x="{tag_left}" y="{}" width="{tag_width_with_padding}" height="{TAG_HEIGHT}" rx="{TAG_RADIUS}" fill="white"/><text x="{}" y="{baseline}" font-family="sans-serif" font-size="{TAG_FONT_SIZE}">{tag}</text>"#,
+            r#"<rect id="card-{index}-tag-{tag_index}" x="{tag_left}" y="{}" width="{tag_width_with_padding}" height="{TAG_HEIGHT}" rx="{TAG_RADIUS}" fill="white"/>{}"#,
             baseline - TAG_BASELINE,
-            tag_left + TAG_PADDING_X
+            tag.to_svg(tag_left + TAG_PADDING_X, baseline, "")
         ));
         tag_left += tag_width_with_padding + TAG_MARGIN;
     }
@@ -243,10 +241,10 @@ fn render_level_titles(map: &StoryMap, grid: &Grid) -> String {
         .zip(&grid.first_row_by_level)
         .filter(|(title, _)| !title.is_empty())
         .map(|(title, row)| {
-            format!(
-                r#"<text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}" fill="{LEVEL_TITLE_COLOR}">{title}</text>"#,
+            TextSpec::markdown("", title, FONT_SIZE).to_svg(
                 PAGE_PADDING + LEVEL_TITLE_MARGIN + LEVEL_TITLE_PADDING_X,
-                grid.row_tops[*row] + LEVEL_TITLE_MARGIN + LEVEL_TITLE_PADDING_Y + BASELINE
+                grid.row_tops[*row] + LEVEL_TITLE_MARGIN + LEVEL_TITLE_PADDING_Y + BASELINE,
+                &format!(r#" fill="{LEVEL_TITLE_COLOR}""#),
             )
         })
         .collect()
