@@ -175,3 +175,15 @@ fn cards_and_bands_are_painted_in_the_level_colors() {
     assert_eq!(fill_of(&tree, "band-1"), "#e0ffee");
     assert_eq!(fill_of(&tree, "card-1"), "#beffdc");
 }
+
+// レベル4より下の帯は、1つおきに少し明るくなる
+#[test]
+fn every_second_band_below_level_4_is_lighter() {
+    let tree = tree_of(&svg_of(
+        "- A\n\t- B\n\t\t- C\n\t\t\t- D\n\t\t\t\t- E\n\t\t\t\t\t- F",
+    ));
+
+    assert_eq!(fill_of(&tree, "band-3"), "#fff3e0");
+    assert_eq!(fill_of(&tree, "band-4"), "#fffaf3");
+    assert_eq!(fill_of(&tree, "band-5"), "#fff3e0");
+}
