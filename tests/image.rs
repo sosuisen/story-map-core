@@ -63,3 +63,24 @@ fn card_texts_are_drawn_as_svg_text() {
     assert!(texts.contains(&"Activity A".to_string()));
     assert!(texts.contains(&"Task A1".to_string()));
 }
+
+fn text_box(tree: &Tree, content: &str) -> Rect {
+    texts_of(tree)
+        .into_iter()
+        .find(|(text, _)| text == content)
+        .map(|(_, rect)| rect)
+        .unwrap()
+}
+
+// アクティビティは左から右へ、アウトラインの順に並ぶ
+#[test]
+fn activities_go_from_left_to_right_in_outline_order() {
+    let tree = tree_of(&svg_of("- Activity A\n- Activity B\n- Activity C"));
+
+    let a = text_box(&tree, "Activity A");
+    let b = text_box(&tree, "Activity B");
+    let c = text_box(&tree, "Activity C");
+    assert!(a.right() < b.left() && b.right() < c.left());
+    assert_eq!(a.top(), b.top());
+    assert_eq!(b.top(), c.top());
+}
