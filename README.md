@@ -48,7 +48,7 @@ Add the crate to `Cargo.toml`:
 
 ```toml
 [dependencies]
-storymap = "0.2"
+storymap = "0.3"
 ```
 
 Read an outline as a `StoryMap`:
@@ -78,10 +78,17 @@ let page = format!("<style>{}</style><div class=\"map-zoom\">{}</div>", map_css(
 `inline_html` renders one piece of inline Markdown, such as a card text.
 Raw HTML in the text is escaped.
 
+A card is up to 240px wide, and a longer text wraps onto more lines.
+To change the width, set the CSS variable `--card-max-width` on the page:
+
+```css
+:root { --card-max-width: 320px; }
+```
+
 If you do not need HTML, turn the feature off:
 
 ```toml
-storymap = { version = "0.2", default-features = false }
+storymap = { version = "0.3", default-features = false }
 ```
 
 ### Image
@@ -89,7 +96,7 @@ storymap = { version = "0.2", default-features = false }
 The `image` feature is off by default. Turn it on:
 
 ```toml
-storymap = { version = "0.2", features = ["image"] }
+storymap = { version = "0.3", features = ["image"] }
 ```
 
 Render the map as an SVG document or a PNG image:
@@ -104,7 +111,8 @@ let png: Vec<u8> = render_png(&map, &options);
 ```
 
 The image follows the look of the HTML output.
-Each card shows its text on one line.
+A card is up to `ImageOptions::max_card_width` wide, which is 240 by default.
+A longer text wraps onto more lines.
 Bold, italic, and code get their fonts. Links become plain text.
 
 The text is measured and drawn with the fonts in `ImageOptions::fonts`.
