@@ -184,6 +184,17 @@ fn a_japanese_text_wraps_between_characters() {
     assert_eq!(lines.concat(), text);
 }
 
+// 上限より長い1語は、語の途中で折り返す
+#[test]
+fn a_word_longer_than_the_maximum_breaks_inside() {
+    let word = "https://example.com/a/very/long/address/that/has/no/spaces/at/all";
+
+    let lines = wrapped_lines(&format!("- {word}"));
+
+    assert!(lines.len() > 1);
+    assert_eq!(lines.concat(), word);
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
