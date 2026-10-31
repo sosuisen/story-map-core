@@ -95,8 +95,7 @@ Render the map as an SVG document or a PNG image:
 ```rust
 use story_map_core::image::{ImageOptions, render_png, render_svg};
 
-let map = story_map_core::parse("- Activity A
-  - Task A1");
+let map = story_map_core::parse("- Activity A\n  - Task A1");
 let options = ImageOptions { scale: 2.0, ..ImageOptions::default() };
 let svg: String = render_svg(&map, &options);
 let png: Vec<u8> = render_png(&map, &options);
