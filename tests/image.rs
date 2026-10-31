@@ -406,3 +406,11 @@ fn the_png_is_the_svg_size_times_the_scale() {
         (255, 255, 255, 255)
     );
 }
+
+// ノートの中の改行は、空白として描かれる
+#[test]
+fn line_breaks_in_a_note_are_drawn_as_spaces() {
+    let tree = tree_of(&svg_of("Hard\\nbreak and soft\nbreak\n\n- Activity"));
+
+    assert!(contents_of(&tree).contains(&"Hard break and soft break".to_string()));
+}
