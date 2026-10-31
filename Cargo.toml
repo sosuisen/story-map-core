@@ -1,10 +1,10 @@
 [package]
 name = "story-map-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Hidekazu Kubota"]
 license = "MIT"
-description = "Turn a Markdown outline into a user story map, and render the map as HTML"
+description = "Turn a Markdown outline into a user story map, and render the map as HTML or an image"
 repository = "https://github.com/sosuisen/story-map-core"
 readme = "README.md"
 keywords = ["story-map", "markdown", "outline", "agile"]
