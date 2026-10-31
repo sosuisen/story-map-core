@@ -6,6 +6,7 @@ This crate is the core of the VSCode extension [Story Mapping](https://github.co
 It reads the outline and lays out the cards on a grid.
 The result holds only data, so you can draw the map in your own way.
 With the `html` feature, the crate also renders the map as HTML.
+With the `image` feature, it renders the map as an SVG or PNG image.
 
 ## Outline Format
 
@@ -45,7 +46,7 @@ Add the crate to `Cargo.toml`:
 
 ```toml
 [dependencies]
-story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.1.0" }
+story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0" }
 ```
 
 Read an outline as a `StoryMap`:
@@ -78,15 +79,43 @@ Raw HTML in the text is escaped.
 If you do not need HTML, turn the feature off:
 
 ```toml
-story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.1.0", default-features = false }
+story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0", default-features = false }
 ```
+
+### Image
+
+The `image` feature is off by default. Turn it on:
+
+```toml
+story-map-core = { git = "https://github.com/sosuisen/story-map-core", tag = "v0.2.0", features = ["image"] }
+```
+
+Render the map as an SVG document or a PNG image:
+
+```rust
+use story_map_core::image::{ImageOptions, render_png, render_svg};
+
+let map = story_map_core::parse("- Activity A
+  - Task A1");
+let options = ImageOptions { scale: 2.0, ..ImageOptions::default() };
+let svg: String = render_svg(&map, &options);
+let png: Vec<u8> = render_png(&map, &options);
+```
+
+The image follows the look of the HTML output.
+Each card shows its text on one line.
+Bold, italic, and code get their fonts. Links become plain text.
+
+The text is measured and drawn with the fonts in `ImageOptions::fonts`.
+The default options load the fonts of the OS.
+To get the same image on every machine, load your own fonts into a `fontdb::Database`.
 
 ## Development
 
 ```sh
 cargo fmt --check
-cargo clippy --all-targets
-cargo test
+cargo clippy --all-targets --all-features
+cargo test --all-features
 ```
 
 ## License
