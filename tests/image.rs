@@ -141,19 +141,24 @@ fn cards_in_the_same_column_have_the_same_width() {
 
 const LONG_TEXT: &str = "A card with a long text that does not fit on one line of the card";
 
-// 上限より長い文のカードは、上限の幅（既定240px）で、複数の行に折り返す
-#[test]
-fn a_long_card_wraps_at_the_maximum_width() {
-    let tree = tree_of(&svg_of(&format!("- {LONG_TEXT}")));
-
+// The lines of the first card, which wraps at the default maximum width. Each line is inside the card
+fn wrapped_lines(outline: &str) -> Vec<String> {
+    let tree = tree_of(&svg_of(outline));
     let card = card_box(&tree, 0);
     assert_eq!(card.width(), 240.0);
     let lines = texts_of(&tree);
-    assert!(lines.len() > 1);
     assert!(lines.iter().all(|(_, line)| contains(card, *line)));
+    lines.into_iter().map(|(text, _)| text).collect()
+}
+
+// 上限より長い文のカードは、上限の幅（既定240px）で、複数の行に折り返す
+#[test]
+fn a_long_card_wraps_at_the_maximum_width() {
+    let lines = wrapped_lines(&format!("- {LONG_TEXT}"));
+
+    assert!(lines.len() > 1);
     // 行をつなぐと、元の文に戻る
-    let joined: Vec<String> = lines.into_iter().map(|(text, _)| text).collect();
-    assert_eq!(joined.join(" "), LONG_TEXT);
+    assert_eq!(lines.join(" "), LONG_TEXT);
 }
 
 // 上限は、ImageOptionsで変えられる
@@ -166,16 +171,6 @@ fn the_maximum_width_can_be_changed_in_the_options() {
     let tree = tree_of(&render_svg(&parse(&format!("- {LONG_TEXT}")), &options));
 
     assert_eq!(card_box(&tree, 0).width(), 400.0);
-}
-
-// The lines of a card that wraps. Each line is inside the card
-fn wrapped_lines(outline: &str) -> Vec<String> {
-    let tree = tree_of(&svg_of(outline));
-    let card = card_box(&tree, 0);
-    assert_eq!(card.width(), 240.0);
-    let lines = texts_of(&tree);
-    assert!(lines.iter().all(|(_, line)| contains(card, *line)));
-    lines.into_iter().map(|(text, _)| text).collect()
 }
 
 // 日本語の文は、文字の間で折り返す
