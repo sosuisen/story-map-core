@@ -5,6 +5,7 @@
 
 use std::sync::LazyLock;
 
+use proptest::prelude::*;
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg::{FontFamily, FontStyle, Group, Node, Options, Paint, Path, Rect, Text, Tree};
 use story_map_core::image::{ImageOptions, render_png, render_svg};
@@ -414,4 +415,64 @@ fn line_breaks_in_a_note_are_drawn_as_spaces() {
     let tree = tree_of(&svg_of("Hard\\\nbreak and soft\nbreak\n\n- Activity"));
 
     assert!(contents_of(&tree).contains(&"Hard break and soft break".to_string()));
+}
+
+// One item of an outline: its depth, marker, checkbox, text, and tags
+fn outline_item() -> impl Strategy<Value = (usize, &'static str, &'static str, String, Vec<String>)>
+{
+    (
+        0..5usize,
+        prop::sample::select(vec!["", "^ ", "v ", "vv "]),
+        prop::sample::select(vec!["", "[ ] ", "[x] "]),
+        "[a-zA-Z0-9 あいうえお漢字*`_&<>]{1,30}",
+        prop::collection::vec("[a-z0-9]{1,8}", 0..3),
+    )
+}
+
+// A bullet list where each item is at most one level deeper than the item above
+fn outline_of(items: &[(usize, &str, &str, String, Vec<String>)]) -> String {
+    let mut depth = 0;
+    let mut lines = Vec::new();
+    for (wanted, marker, checkbox, text, tags) in items {
+        depth = (*wanted).min(depth + 1);
+        let tags: String = tags.iter().map(|tag| format!(" #{tag}")).collect();
+        lines.push(format!(
+            "{}- {checkbox}{marker}{}{tags}",
+            "  ".repeat(depth),
+            text.trim()
+        ));
+        depth += 1;
+    }
+    lines.join("\n")
+}
+
+fn inside(canvas: Rect, inner: Rect) -> bool {
+    canvas.left() <= inner.left()
+        && canvas.top() <= inner.top()
+        && inner.right() <= canvas.right()
+        && inner.bottom() <= canvas.bottom()
+}
+
+proptest! {
+    // Each case lays out a whole map and searches fallback fonts, so the cases are fewer than the default
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    // どんなアウトラインでも、すべてのカードと文字が画像の中に収まる
+    #[test]
+    fn every_card_and_text_fits_in_the_image(
+        items in prop::collection::vec(outline_item(), 1..20)
+    ) {
+        let outline = outline_of(&items);
+        let map = parse(&outline);
+        let tree = tree_of(&svg_of(&outline));
+        let size = tree.size();
+        let canvas = Rect::from_xywh(0.0, 0.0, size.width(), size.height()).unwrap();
+
+        for index in 0..map.cells.len() {
+            prop_assert!(inside(canvas, card_box(&tree, index)), "card {index} of\n{outline}");
+        }
+        for (text, text_box) in texts_of(&tree) {
+            prop_assert!(inside(canvas, text_box), "text {text:?} of\n{outline}");
+        }
+    }
 }
