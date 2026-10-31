@@ -78,6 +78,24 @@ impl TextSpec {
             .collect()
     }
 
+    /// Each character as a text of its own, in the font of its run
+    pub(super) fn characters(&self) -> Vec<TextSpec> {
+        self.runs
+            .iter()
+            .flat_map(|run| {
+                run.text.chars().map(|ch| Run {
+                    text: ch.to_string(),
+                    ..run.clone()
+                })
+            })
+            .map(|run| Self {
+                runs: vec![run],
+                font_size: self.font_size,
+                bold: self.bold,
+            })
+            .collect()
+    }
+
     pub(super) fn is_space(&self) -> bool {
         self.runs.iter().all(|run| run.text == " ")
     }

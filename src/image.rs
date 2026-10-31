@@ -216,6 +216,42 @@ enum Item {
     Tag(TextSpec, f32),
 }
 
+// A word that is wider than a line is cut into characters, like CSS `overflow-wrap: anywhere`
+fn break_long_words(
+    cards: Vec<Vec<(TextSpec, f32)>>,
+    line_width: f32,
+    options: &ImageOptions,
+) -> Vec<Vec<(TextSpec, f32)>> {
+    let too_long = |(_, advance): &(TextSpec, f32)| *advance > line_width;
+    let characters: Vec<TextSpec> = cards
+        .iter()
+        .flatten()
+        .filter(|piece| too_long(piece))
+        .flat_map(|(piece, _)| piece.characters())
+        .collect();
+    let mut advances = measure_advances(&characters, options).into_iter();
+    cards
+        .into_iter()
+        .map(|pieces| {
+            pieces
+                .into_iter()
+                .flat_map(|piece| {
+                    if too_long(&piece) {
+                        piece
+                            .0
+                            .characters()
+                            .into_iter()
+                            .map(|character| (character, advances.next().unwrap_or_default()))
+                            .collect()
+                    } else {
+                        vec![piece]
+                    }
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// The lines of a card. Each item has its left edge, measured from the start of the line
 struct CardContent {
     lines: Vec<Vec<(f32, Item)>>,
@@ -241,6 +277,17 @@ impl CardContent {
             .map(|tag| TextSpec::new(tag, TAG_FONT_SIZE))
             .collect();
         let mut advances = measure_advances(&pieces.concat(), options).into_iter();
+        let pieces = pieces
+            .into_iter()
+            .map(|pieces| {
+                pieces
+                    .into_iter()
+                    .map(|piece| (piece, advances.next().unwrap_or_default()))
+                    .collect()
+            })
+            .collect();
+        let line_width = options.max_card_width - 2.0 * (CARD_PADDING_X + CARD_BORDER);
+        let pieces = break_long_words(pieces, line_width, options);
         let mut tag_widths = measure(&tags, options).into_iter();
         let mut tags = tags.into_iter();
         map.cells
@@ -249,7 +296,7 @@ impl CardContent {
             .map(|(cell, pieces)| {
                 let mut items: Vec<(Item, f32)> = pieces
                     .into_iter()
-                    .map(|piece| (Item::Text(piece), advances.next().unwrap_or_default()))
+                    .map(|(piece, advance)| (Item::Text(piece), advance))
                     .collect();
                 for _ in &cell.card.tags {
                     let width = tag_widths.next().unwrap_or_default();
