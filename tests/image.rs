@@ -112,15 +112,13 @@ fn card_box(tree: &Tree, index: usize) -> Rect {
 // 長い文字のカードの列は、短い文字の列より広くなる
 #[test]
 fn a_column_with_a_long_text_is_wider() {
-    let tree = tree_of(&svg_of(
-        "- Short\n- A much longer activity name than the others\n- Short",
-    ));
+    let tree = tree_of(&svg_of("- Short\n- A longer activity name\n- Short"));
 
     let short = card_box(&tree, 0);
     let long = card_box(&tree, 1);
     assert!(long.width() > short.width());
     // 文字は、カードの枠に収まる
-    assert!(text_box(&tree, "A much longer activity name than the others").right() < long.right());
+    assert!(text_box(&tree, "A longer activity name").right() < long.right());
     // 広い列の分だけ、右の列は右にずれる
     assert!(long.right() < card_box(&tree, 2).left());
 }

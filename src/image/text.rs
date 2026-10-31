@@ -64,6 +64,57 @@ impl TextSpec {
         }
     }
 
+    /// The pieces that a line may break between: words, spaces, and single CJK characters.
+    /// Each piece has one run. Spaces in a row become one space
+    pub(super) fn pieces(&self) -> Vec<TextSpec> {
+        self.runs
+            .iter()
+            .flat_map(split_run)
+            .map(|run| Self {
+                runs: vec![run],
+                font_size: self.font_size,
+                bold: self.bold,
+            })
+            .collect()
+    }
+
+    pub(super) fn is_space(&self) -> bool {
+        self.runs.iter().all(|run| run.text == " ")
+    }
+
+    /// The pieces of one line as one text. Neighboring runs of the same font become one run
+    pub(super) fn joined(pieces: &[TextSpec]) -> TextSpec {
+        let mut runs: Vec<Run> = Vec::new();
+        for run in pieces.iter().flat_map(|piece| &piece.runs) {
+            match runs.last_mut() {
+                Some(last) if last.same_font(run) => last.text.push_str(&run.text),
+                _ => runs.push(run.clone()),
+            }
+        }
+        Self {
+            runs,
+            font_size: pieces.first().map_or(0.0, |piece| piece.font_size),
+            bold: pieces.first().is_some_and(|piece| piece.bold),
+        }
+    }
+
+    // The same text between two marks, and the two marks alone
+    fn marked(&self) -> [TextSpec; 2] {
+        let mark = Run {
+            text: MARK.to_string(),
+            ..Run::default()
+        };
+        let spec = |runs| Self {
+            runs,
+            font_size: self.font_size,
+            bold: self.bold,
+        };
+        let mut runs = vec![mark.clone()];
+        runs.extend(self.runs.iter().cloned());
+        runs.push(mark.clone());
+        [spec(runs), spec(vec![mark.clone(), mark])]
+    }
+
     // A `<text>` element with its baseline at (x, y)
     pub(super) fn to_svg(&self, x: f32, y: f32, extra: &str) -> String {
         let weight = if self.bold {
@@ -77,6 +128,53 @@ impl TextSpec {
             self.font_size
         )
     }
+}
+
+impl Run {
+    fn same_font(&self, other: &Run) -> bool {
+        (self.bold, self.italic, self.code) == (other.bold, other.italic, other.code)
+    }
+}
+
+fn split_run(run: &Run) -> Vec<Run> {
+    let piece = |text: &str| Run {
+        text: text.to_string(),
+        ..run.clone()
+    };
+    let mut pieces = Vec::new();
+    let mut word = String::new();
+    let flush = |word: &mut String, pieces: &mut Vec<Run>| {
+        if !word.is_empty() {
+            pieces.push(piece(word));
+            word.clear();
+        }
+    };
+    for ch in run.text.chars() {
+        if ch.is_whitespace() {
+            flush(&mut word, &mut pieces);
+            if pieces.last().is_none_or(|last| last.text != " ") {
+                pieces.push(piece(" "));
+            }
+        } else if is_cjk(ch) {
+            flush(&mut word, &mut pieces);
+            pieces.push(piece(&ch.to_string()));
+        } else {
+            word.push(ch);
+        }
+    }
+    flush(&mut word, &mut pieces);
+    pieces
+}
+
+// Chinese, Japanese, and Korean text has no spaces, so a line may break between any two of these characters
+fn is_cjk(ch: char) -> bool {
+    matches!(ch,
+        '\u{3000}'..='\u{30FF}' // CJK symbols, Hiragana, and Katakana
+        | '\u{3400}'..='\u{4DBF}' // CJK Extension A
+        | '\u{4E00}'..='\u{9FFF}' // CJK Unified Ideographs
+        | '\u{AC00}'..='\u{D7AF}' // Hangul syllables
+        | '\u{FF00}'..='\u{FFEF}' // Fullwidth forms
+    )
 }
 
 fn run_to_svg(run: &Run) -> String {
@@ -150,6 +248,19 @@ fn collect_runs(node: Node<'_>, style: &Run, runs: &mut Vec<Run>) {
             _ => collect_runs(child, style, runs),
         }
     }
+}
+
+// A glyph with ink on both sides, so that its box shows where the text between two marks starts and ends
+const MARK: &str = "|";
+
+// The distance that each text moves the pen, spaces included.
+// The box of a text leaves out the spaces at its ends, so each text is measured between two marks
+pub(super) fn measure_advances(texts: &[TextSpec], options: &ImageOptions) -> Vec<f32> {
+    let marked: Vec<TextSpec> = texts.iter().flat_map(TextSpec::marked).collect();
+    measure(&marked, options)
+        .chunks(2)
+        .map(|pair| pair[0] - pair[1])
+        .collect()
 }
 
 // The width of each text when it is drawn with the fonts

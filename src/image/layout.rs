@@ -1,8 +1,8 @@
 //! The positions of the blocks and the grid tracks on the canvas
 
 use super::{
-    BAND_BORDER, CARD_BORDER, CARD_MARGIN, CARD_MIN_WIDTH, CARD_PADDING_X, CardContent,
-    LEVEL_TITLE_MARGIN, LEVEL_TITLE_PADDING_X, PAGE_PADDING, ROW_HEIGHT,
+    BAND_BORDER, CARD_MARGIN, CardContent, LEVEL_TITLE_MARGIN, LEVEL_TITLE_PADDING_X, PAGE_PADDING,
+    ROW_HEIGHT,
 };
 use crate::StoryMap;
 
@@ -64,21 +64,21 @@ impl Grid {
                 .fold(0.0, f32::max);
         }
         for (cell, content) in map.cells.iter().zip(contents) {
-            let card_width =
-                (content.width() + 2.0 * (CARD_PADDING_X + CARD_BORDER)).max(CARD_MIN_WIDTH);
             let width = &mut column_widths[first_card_column + cell.column];
-            *width = width.max(card_width + 2.0 * CARD_MARGIN);
+            *width = width.max(content.card_width() + 2.0 * CARD_MARGIN);
         }
         let first_row_by_level = starts_of(&map.rows_by_level, 0);
-        // Like CSS Grid, a row without cards or titles has no height. Only the dashed line of the band shows
+        // Like CSS Grid, a row without cards or titles has no height. Only the dashed line of the band shows.
+        // Otherwise each row is as tall as its tallest card
         let row_count: usize = map.rows_by_level.iter().sum();
         let mut row_heights = vec![BAND_BORDER; row_count];
-        for cell in &map.cells {
-            row_heights[first_row_by_level[cell.level] + cell.row_in_level] = ROW_HEIGHT;
+        for (cell, content) in map.cells.iter().zip(contents) {
+            let height = &mut row_heights[first_row_by_level[cell.level] + cell.row_in_level];
+            *height = height.max(content.card_height() + 2.0 * CARD_MARGIN);
         }
         for (title, row) in map.level_titles.iter().zip(&first_row_by_level) {
             if !title.is_empty() {
-                row_heights[*row] = ROW_HEIGHT;
+                row_heights[*row] = row_heights[*row].max(ROW_HEIGHT);
             }
         }
         Self {
