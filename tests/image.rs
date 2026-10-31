@@ -476,3 +476,17 @@ proptest! {
         }
     }
 }
+
+// 既定のフォントでは、どのOSでも本文とコードの書体が見つかる
+#[test]
+fn the_default_fonts_have_a_sans_serif_and_a_monospace_font() {
+    use story_map_core::image::fontdb::{Family, Query};
+
+    for family in [Family::SansSerif, Family::Monospace] {
+        let query = Query {
+            families: &[family],
+            ..Query::default()
+        };
+        assert!(IMAGE_OPTIONS.fonts.query(&query).is_some(), "{family:?}");
+    }
+}
