@@ -5,7 +5,7 @@
 
 use std::sync::LazyLock;
 
-use resvg::usvg::{Group, Node, Options, Paint, Path, Rect, Text, Tree};
+use resvg::usvg::{FontFamily, FontStyle, Group, Node, Options, Paint, Path, Rect, Text, Tree};
 use story_map_core::image::{ImageOptions, render_svg};
 use story_map_core::parse;
 
@@ -321,4 +321,51 @@ fn the_trailing_notes_are_drawn_below_the_map() {
     let last_band = node_box(&tree, "band-2");
     assert!(last_band.bottom() < below.top());
     assert!(below.bottom() <= tree.size().height());
+}
+
+// The pieces of a text with their fonts: (text, bold, italic, monospace)
+fn spans_of(tree: &Tree, content: &str) -> Vec<(String, bool, bool, bool)> {
+    let mut spans = Vec::new();
+    find_spans(tree.root(), content, &mut spans);
+    spans
+}
+
+fn find_spans(group: &Group, content: &str, spans: &mut Vec<(String, bool, bool, bool)>) {
+    for node in group.children() {
+        match node {
+            Node::Group(child) => find_spans(child, content, spans),
+            Node::Text(text) if content_of(text) == content => {
+                for chunk in text.chunks() {
+                    for span in chunk.spans() {
+                        let font = span.font();
+                        spans.push((
+                            chunk.text()[span.start()..span.end()].to_string(),
+                            font.weight() >= 700,
+                            font.style() == FontStyle::Italic,
+                            font.families().contains(&FontFamily::Monospace),
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+// 太字・斜体・コードは、書体を変えて描かれる。リンクはただの文字になる
+#[test]
+fn bold_italic_and_code_are_drawn_in_their_fonts() {
+    let tree = tree_of(&svg_of(
+        "- **Bold** and *italic* with `code` [link](https://example.com)",
+    ));
+
+    let spans = spans_of(&tree, "Bold and italic with code link");
+    assert!(spans.contains(&("Bold".to_string(), true, false, false)));
+    assert!(spans.contains(&("italic".to_string(), false, true, false)));
+    assert!(spans.contains(&("code".to_string(), false, false, true)));
+    assert!(
+        spans
+            .iter()
+            .any(|(text, bold, italic, mono)| text.contains("link") && !bold && !italic && !mono)
+    );
 }
