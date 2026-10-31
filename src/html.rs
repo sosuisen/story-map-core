@@ -8,7 +8,7 @@ mod inline;
 pub use inline::{escape_html, inline_html};
 
 use crate::style::{
-    ALT_SHADE, BORDER_SHADE, CARD_SHADE, LEVEL_COLORS, is_alt_band, level_number_of,
+    ALT_SHADE, BORDER_SHADE, CARD_SHADE, LEVEL_COLORS, checkbox_emoji, is_alt_band, level_number_of,
 };
 use crate::{Card, StoryMap};
 
@@ -127,16 +127,13 @@ fn render_notes(class_name: &str, notes: &[String]) -> String {
 
 fn render_card(card: &Card, level: usize, position: &str) -> String {
     let mut classes = format!("card level{}", level_number_of(level));
-    let mut text = String::new();
     if card.done {
         classes.push_str(" done");
-        text.push_str("✅ ");
     }
     if card.todo {
         classes.push_str(" todo");
-        text.push_str("⬜ ");
     }
-    text.push_str(&inline_html(&card.text));
+    let text = format!("{}{}", checkbox_emoji(card), inline_html(&card.text));
     let tags: String = card
         .tags
         .iter()

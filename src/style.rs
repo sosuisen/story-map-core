@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::Card;
+
 // The base colors of level 1 to 4. Level 4 and below all use the last one
 pub(crate) const LEVEL_COLORS: [Rgb; 4] = [
     Rgb(0xe0, 0xef, 0xff),
@@ -21,6 +23,17 @@ pub(crate) struct Rgb(u8, u8, u8);
 impl fmt::Display for Rgb {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "#{:02x}{:02x}{:02x}", self.0, self.1, self.2)
+    }
+}
+
+/// The checkbox of a card as an emoji with a space, or an empty string without a checkbox
+pub(crate) fn checkbox_emoji(card: &Card) -> &'static str {
+    if card.done {
+        "✅ "
+    } else if card.todo {
+        "⬜ "
+    } else {
+        ""
     }
 }
 

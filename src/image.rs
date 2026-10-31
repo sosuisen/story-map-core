@@ -8,7 +8,9 @@ use std::sync::Arc;
 pub use resvg::usvg::fontdb;
 use resvg::usvg::{self, Tree};
 
-use crate::style::{ALT_SHADE, BORDER_SHADE, CARD_SHADE, is_alt_band, level_color, shaded};
+use crate::style::{
+    ALT_SHADE, BORDER_SHADE, CARD_SHADE, checkbox_emoji, is_alt_band, level_color, shaded,
+};
 use crate::{Card, Cell, StoryMap};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
@@ -110,14 +112,7 @@ fn render_card(index: usize, cell: &Cell, text: &str, grid: &Grid) -> String {
 
 // The text of a card with its checkbox as an emoji
 fn display_text(card: &Card) -> String {
-    let checkbox = if card.done {
-        "✅ "
-    } else if card.todo {
-        "⬜ "
-    } else {
-        ""
-    };
-    format!("{checkbox}{}", card.text)
+    format!("{}{}", checkbox_emoji(card), card.text)
 }
 
 // One band per level behind the cards, with a dashed line at the bottom
