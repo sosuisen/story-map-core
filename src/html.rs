@@ -23,7 +23,7 @@ pub fn map_css() -> String {
 body {{ background: white; color: black; }}
 .map-zoom {{ width: fit-content; display: flow-root; padding: 16px; }}
 .map-grid {{ display: grid; gap: 0; justify-content: start; align-items: start; }}
-.card {{ border: 2px solid; padding: 4px 8px; margin: 8px; border-radius: 6px; min-width: 120px; max-width: var(--card-max-width, 240px); overflow-wrap: anywhere; box-sizing: border-box; }}
+.card {{ border: 2px solid; padding: 4px 8px; margin: 8px; border-radius: 6px; min-width: 120px; max-width: var(--card-max-width, 240px); overflow-wrap: anywhere; align-self: stretch; box-sizing: border-box; }}
 .todo {{ box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2); }}
 {}
 .done {{ border: none; box-shadow: none; }}
