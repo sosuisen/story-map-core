@@ -261,3 +261,37 @@ fn level_titles_are_drawn_in_the_first_column() {
     );
     assert!(tasks.top() > card_box(&tree, 1).top() && tasks.bottom() < card_box(&tree, 1).bottom());
 }
+
+fn node_box(tree: &Tree, id: &str) -> Rect {
+    tree.node_by_id(id).unwrap().abs_bounding_box()
+}
+
+fn contains(outer: Rect, inner: Rect) -> bool {
+    outer.left() <= inner.left()
+        && inner.right() <= outer.right()
+        && outer.top() <= inner.top()
+        && inner.bottom() <= outer.bottom()
+}
+
+// `^`で同じレベルに入ったカードは、帯の2行目に描かれる
+#[test]
+fn a_caret_card_is_drawn_on_the_second_row_of_the_band() {
+    let tree = tree_of(&svg_of("- Activity\n\t- Task\n\t\t- ^ Same level"));
+
+    let task = card_box(&tree, 1);
+    let same = card_box(&tree, 2);
+    assert!(task.bottom() < same.top());
+    assert_eq!(task.left(), same.left());
+    assert!(contains(node_box(&tree, "band-1"), task));
+    assert!(contains(node_box(&tree, "band-1"), same));
+}
+
+// カードのないレベルは、細い帯として描かれる
+#[test]
+fn a_level_without_cards_is_drawn_as_a_thin_band() {
+    let tree = tree_of(&svg_of("- Activity\n\t- Task"));
+
+    let empty = node_box(&tree, "band-2");
+    assert!(empty.height() > 0.0);
+    assert!(empty.height() < card_box(&tree, 1).height());
+}
