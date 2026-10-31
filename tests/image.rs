@@ -8,8 +8,8 @@ use std::sync::LazyLock;
 use proptest::prelude::*;
 use resvg::tiny_skia::Pixmap;
 use resvg::usvg::{FontFamily, FontStyle, Group, Node, Options, Paint, Path, Rect, Text, Tree};
-use story_map_core::image::{ImageOptions, render_png, render_svg};
-use story_map_core::parse;
+use storymap::image::{ImageOptions, render_png, render_svg};
+use storymap::parse;
 
 // Loading the system fonts takes time, so the tests share one set
 static IMAGE_OPTIONS: LazyLock<ImageOptions> = LazyLock::new(ImageOptions::default);
@@ -480,7 +480,7 @@ proptest! {
 // 既定のフォントでは、どのOSでも本文とコードの書体が見つかる
 #[test]
 fn the_default_fonts_have_a_sans_serif_and_a_monospace_font() {
-    use story_map_core::image::fontdb::{Family, Query};
+    use storymap::image::fontdb::{Family, Query};
 
     for family in [Family::SansSerif, Family::Monospace] {
         let query = Query {

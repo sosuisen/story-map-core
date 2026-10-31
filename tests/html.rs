@@ -3,8 +3,8 @@
 
 #![cfg(feature = "html")]
 
-use story_map_core::html::{inline_html, map_css, render_map_content};
-use story_map_core::parse;
+use storymap::html::{inline_html, map_css, render_map_content};
+use storymap::parse;
 
 // カードは、帯の行と列に置かれる。レベルのタイトルがあれば、カードは2列目から始まる
 #[test]
