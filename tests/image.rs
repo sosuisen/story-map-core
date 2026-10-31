@@ -18,6 +18,15 @@ fn svg_of(outline: &str) -> String {
     render_svg(&parse(outline), &IMAGE_OPTIONS)
 }
 
+// For the tests that need a text on one line
+fn unwrapped_svg_of(outline: &str) -> String {
+    let options = ImageOptions {
+        max_card_width: 400.0,
+        ..IMAGE_OPTIONS.clone()
+    };
+    render_svg(&parse(outline), &options)
+}
+
 fn tree_of(svg: &str) -> Tree {
     let options = Options {
         fontdb: IMAGE_OPTIONS.fonts.clone(),
@@ -112,7 +121,9 @@ fn card_box(tree: &Tree, index: usize) -> Rect {
 // 長い文字のカードの列は、短い文字の列より広くなる
 #[test]
 fn a_column_with_a_long_text_is_wider() {
-    let tree = tree_of(&svg_of("- Short\n- A longer activity name\n- Short"));
+    let tree = tree_of(&unwrapped_svg_of(
+        "- Short\n- A longer activity name\n- Short",
+    ));
 
     let short = card_box(&tree, 0);
     let long = card_box(&tree, 1);
@@ -465,7 +476,7 @@ fn find_spans(group: &Group, content: &str, spans: &mut Vec<(String, bool, bool,
 // 太字・斜体・コードは、書体を変えて描かれる。リンクはただの文字になる
 #[test]
 fn bold_italic_and_code_are_drawn_in_their_fonts() {
-    let tree = tree_of(&svg_of(
+    let tree = tree_of(&unwrapped_svg_of(
         "- **Bold** and *italic* with `code` [link](https://example.com)",
     ));
 

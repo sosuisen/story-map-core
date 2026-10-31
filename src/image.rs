@@ -29,7 +29,7 @@ const CARD_BORDER: f32 = 2.0;
 const CARD_PADDING_X: f32 = 8.0;
 const CARD_PADDING_Y: f32 = 4.0;
 const CARD_MIN_WIDTH: f32 = 120.0;
-const DEFAULT_MAX_CARD_WIDTH: f32 = 240.0;
+const DEFAULT_MAX_CARD_WIDTH: f32 = 160.0;
 const CARD_RADIUS: f32 = 6.0;
 const CARD_HEIGHT: f32 = LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + CARD_BORDER);
 const ROW_HEIGHT: f32 = CARD_HEIGHT + 2.0 * CARD_MARGIN;
@@ -68,7 +68,7 @@ pub struct ImageOptions {
 }
 
 impl Default for ImageOptions {
-    /// The fonts of the OS, at a scale of 1.0, with cards up to 240 pixels wide
+    /// The fonts of the OS, at a scale of 1.0, with cards up to 160 pixels wide
     fn default() -> Self {
         let mut fonts = fontdb::Database::new();
         fonts.load_system_fonts();
