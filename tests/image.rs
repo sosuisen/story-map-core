@@ -184,6 +184,20 @@ fn a_japanese_text_wraps_between_characters() {
     assert_eq!(lines.concat(), text);
 }
 
+// 日本語の文の行は、カードの幅を使い切ってから折り返す
+#[test]
+fn a_japanese_line_fills_the_card_before_it_wraps() {
+    let tree = tree_of(&svg_of(
+        "- 日本語の文には空白がないので、どの文字の間でも折り返してカードに収める",
+    ));
+
+    let card = card_box(&tree, 0);
+    let (_, first_line) = &texts_of(&tree)[0];
+    // 1行には、あと2文字（16pxの全角文字）を足す余白が残らない
+    let inner_width = card.width() - 2.0 * (8.0 + 2.0);
+    assert!(first_line.width() > inner_width - 2.0 * 16.0);
+}
+
 // 上限より長い1語は、語の途中で折り返す
 #[test]
 fn a_word_longer_than_the_maximum_breaks_inside() {
