@@ -34,4 +34,4 @@
     - [x] HTMLとCSSを受け取る
       - [x] インラインのMarkdownを、HTMLにする
   - 画像で描く
-    - [ ] vv マップをSVGとPNGで出力する
+    - [x] vv マップをSVGとPNGで出力する
