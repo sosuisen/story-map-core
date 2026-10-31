@@ -28,6 +28,11 @@ const CARD_RADIUS: f32 = 6.0;
 const CARD_HEIGHT: f32 = LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + CARD_BORDER);
 const ROW_HEIGHT: f32 = CARD_HEIGHT + 2.0 * CARD_MARGIN;
 const BAND_BORDER: f32 = 2.0;
+// A level title is gray text in the first column
+const TITLE_COLOR: &str = "#888888";
+const TITLE_MARGIN: f32 = 8.0;
+const TITLE_PADDING_X: f32 = 8.0;
+const TITLE_PADDING_Y: f32 = 4.0;
 // A tag is a small white pill after the text
 const TAG_FONT_SIZE: f32 = FONT_SIZE * 0.8;
 const TAG_MARGIN: f32 = 4.0;
@@ -61,7 +66,13 @@ impl Default for ImageOptions {
 /// Render the map as an SVG document
 pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
     let contents = CardContent::measure_all(map, options);
-    let grid = Grid::new(map, &contents);
+    let title_texts: Vec<(String, f32)> = map
+        .level_titles
+        .iter()
+        .map(|title| (title.clone(), FONT_SIZE))
+        .collect();
+    let title_widths = measure(&title_texts, options);
+    let grid = Grid::new(map, &contents, &title_widths);
     let cards: String = map
         .cells
         .iter()
@@ -70,8 +81,9 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
         .map(|(index, (cell, content))| render_card(index, cell, content, &grid))
         .collect();
     let bands = render_bands(map, &grid);
+    let titles = render_level_titles(map, &grid);
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{1}"><defs>{SHADOW_FILTER}</defs><rect width="{0}" height="{1}" fill="white"/>{bands}{cards}</svg>"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{1}"><defs>{SHADOW_FILTER}</defs><rect width="{0}" height="{1}" fill="white"/>{bands}{titles}{cards}</svg>"#,
         grid.width, grid.height
     )
 }
@@ -136,9 +148,10 @@ impl CardContent {
 const SHADOW_FILTER: &str = r#"<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.2"/></filter>"#;
 
 fn render_card(index: usize, cell: &Cell, content: &CardContent, grid: &Grid) -> String {
-    let left = grid.column_lefts[cell.column] + CARD_MARGIN;
+    let column = grid.first_card_column + cell.column;
+    let left = grid.column_lefts[column] + CARD_MARGIN;
     let top = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
-    let width = grid.column_widths[cell.column] - 2.0 * CARD_MARGIN;
+    let width = grid.column_widths[column] - 2.0 * CARD_MARGIN;
     let base = level_color(cell.level);
     let fill = shaded(base, CARD_SHADE);
     // A done card has no border, so it is shorter by the border, like in CSS
@@ -183,6 +196,22 @@ fn render_card(index: usize, cell: &Cell, content: &CardContent, grid: &Grid) ->
     svg
 }
 
+// Each title sits on the first row of its band. Levels that do not exist, and empty titles, get no title
+fn render_level_titles(map: &StoryMap, grid: &Grid) -> String {
+    map.level_titles
+        .iter()
+        .zip(&grid.first_row_by_level)
+        .filter(|(title, _)| !title.is_empty())
+        .map(|(title, row)| {
+            format!(
+                r#"<text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}" fill="{TITLE_COLOR}">{title}</text>"#,
+                PAGE_PADDING + TITLE_MARGIN + TITLE_PADDING_X,
+                grid.row_tops[*row] + TITLE_MARGIN + TITLE_PADDING_Y + BASELINE
+            )
+        })
+        .collect()
+}
+
 // One band per level behind the cards, with a dashed line at the bottom
 fn render_bands(map: &StoryMap, grid: &Grid) -> String {
     let left = PAGE_PADDING;
@@ -214,6 +243,8 @@ fn render_bands(map: &StoryMap, grid: &Grid) -> String {
 struct Grid {
     column_lefts: Vec<f32>,
     column_widths: Vec<f32>,
+    // With level titles, the first column holds them and the cards start at the second column
+    first_card_column: usize,
     row_tops: Vec<f32>,
     row_heights: Vec<f32>,
     first_row_by_level: Vec<usize>,
@@ -223,12 +254,19 @@ struct Grid {
 
 impl Grid {
     // Like CSS Grid, each column is as wide as its widest card
-    fn new(map: &StoryMap, contents: &[CardContent]) -> Self {
-        let mut column_widths = vec![0.0_f32; map.column_count];
+    fn new(map: &StoryMap, contents: &[CardContent], title_widths: &[f32]) -> Self {
+        let first_card_column = usize::from(!map.level_titles.is_empty());
+        let mut column_widths = vec![0.0_f32; first_card_column + map.column_count];
+        if first_card_column == 1 {
+            column_widths[0] = title_widths
+                .iter()
+                .map(|width| width + 2.0 * (TITLE_PADDING_X + TITLE_MARGIN))
+                .fold(0.0, f32::max);
+        }
         for (cell, content) in map.cells.iter().zip(contents) {
             let card_width =
                 (content.width() + 2.0 * (CARD_PADDING_X + CARD_BORDER)).max(CARD_MIN_WIDTH);
-            let width = &mut column_widths[cell.column];
+            let width = &mut column_widths[first_card_column + cell.column];
             *width = width.max(card_width + 2.0 * CARD_MARGIN);
         }
         let row_count: usize = map.rows_by_level.iter().sum();
@@ -240,6 +278,7 @@ impl Grid {
             width: 2.0 * PAGE_PADDING + column_widths.iter().sum::<f32>(),
             height: 2.0 * PAGE_PADDING + row_heights.iter().sum::<f32>(),
             column_widths,
+            first_card_column,
             row_heights,
         }
     }
