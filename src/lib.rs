@@ -3,12 +3,16 @@
 //! [`parse`] reads the outline and lays out the cards on a grid. The result, [`StoryMap`], holds only data.
 //! Texts stay raw Markdown, so that each app can render them in its own way.
 //! With the `html` feature, the [`html`] module renders the map as HTML.
+//! With the `image` feature, the [`image`] module renders the map as an SVG or PNG image.
 
 mod layout;
 mod tokens;
 
 #[cfg(feature = "html")]
 pub mod html;
+
+#[cfg(feature = "image")]
+pub mod image;
 
 pub use layout::parse;
 
