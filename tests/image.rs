@@ -145,13 +145,13 @@ const LONG_TEXT: &str = "A card with a long text that does not fit on one line o
 fn wrapped_lines(outline: &str) -> Vec<String> {
     let tree = tree_of(&svg_of(outline));
     let card = card_box(&tree, 0);
-    assert_eq!(card.width(), 240.0);
+    assert_eq!(card.width(), 160.0);
     let lines = texts_of(&tree);
     assert!(lines.iter().all(|(_, line)| contains(card, *line)));
     lines.into_iter().map(|(text, _)| text).collect()
 }
 
-// 上限より長い文のカードは、上限の幅（既定240px）で、複数の行に折り返す
+// 上限より長い文のカードは、上限の幅（既定160px）で、複数の行に折り返す
 #[test]
 fn a_long_card_wraps_at_the_maximum_width() {
     let lines = wrapped_lines(&format!("- {LONG_TEXT}"));
@@ -230,7 +230,7 @@ fn tags_wrap_after_the_text() {
     let tree = tree_of(&svg_of("- A task with tags #first #second #third #fourth"));
 
     let card = card_box(&tree, 0);
-    assert_eq!(card.width(), 240.0);
+    assert_eq!(card.width(), 160.0);
     let last_tag = node_box(&tree, "card-0-tag-3");
     assert!(text_box(&tree, "A task with tags").bottom() < last_tag.top());
     assert!(contains(card, last_tag));
