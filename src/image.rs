@@ -52,40 +52,15 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
         .iter()
         .map(|cell| cell.card.text.as_str())
         .collect();
-    let text_widths = measure(&texts, options);
-    let mut column_widths = vec![0.0_f32; map.column_count];
-    for (cell, text_width) in map.cells.iter().zip(&text_widths) {
-        let card_width = (text_width + 2.0 * (CARD_PADDING_X + CARD_BORDER)).max(CARD_MIN_WIDTH);
-        let width = &mut column_widths[cell.column];
-        *width = width.max(card_width + 2.0 * CARD_MARGIN);
-    }
-    let column_lefts: Vec<f32> = column_widths
-        .iter()
-        .scan(PAGE_PADDING, |left, width| {
-            let column_left = *left;
-            *left += width;
-            Some(column_left)
-        })
-        .collect();
-    let first_row_by_level: Vec<usize> = map
-        .rows_by_level
-        .iter()
-        .scan(0, |next_row, rows| {
-            let first = *next_row;
-            *next_row += rows;
-            Some(first)
-        })
-        .collect();
+    let grid = Grid::new(map, &measure(&texts, options));
     let cards: String = map
         .cells
         .iter()
         .enumerate()
         .map(|(index, cell)| {
-            let x = column_lefts[cell.column] + CARD_MARGIN;
-            let y = PAGE_PADDING
-                + (first_row_by_level[cell.level] + cell.row_in_level) as f32 * ROW_HEIGHT
-                + CARD_MARGIN;
-            let width = column_widths[cell.column] - 2.0 * CARD_MARGIN;
+            let x = grid.column_lefts[cell.column] + CARD_MARGIN;
+            let y = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
+            let width = grid.column_widths[cell.column] - 2.0 * CARD_MARGIN;
             format!(
                 r#"<rect id="card-{index}" x="{x}" y="{y}" width="{width}" height="{CARD_HEIGHT}" fill="none" stroke="black" stroke-width="{CARD_BORDER}"/><text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}">{}</text>"#,
                 x + CARD_BORDER + CARD_PADDING_X,
@@ -94,11 +69,55 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
             )
         })
         .collect();
-    let width = 2.0 * PAGE_PADDING + column_widths.iter().sum::<f32>();
-    let height = 2.0 * PAGE_PADDING + map.rows_by_level.iter().sum::<usize>() as f32 * ROW_HEIGHT;
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><rect width="{width}" height="{height}" fill="white"/>{cards}</svg>"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{1}"><rect width="{0}" height="{1}" fill="white"/>{cards}</svg>"#,
+        grid.width, grid.height
     )
+}
+
+/// The positions of the grid tracks on the canvas
+struct Grid {
+    column_lefts: Vec<f32>,
+    column_widths: Vec<f32>,
+    row_tops: Vec<f32>,
+    first_row_by_level: Vec<usize>,
+    width: f32,
+    height: f32,
+}
+
+impl Grid {
+    // Like CSS Grid, each column is as wide as its widest card
+    fn new(map: &StoryMap, text_widths: &[f32]) -> Self {
+        let mut column_widths = vec![0.0_f32; map.column_count];
+        for (cell, text_width) in map.cells.iter().zip(text_widths) {
+            let card_width =
+                (text_width + 2.0 * (CARD_PADDING_X + CARD_BORDER)).max(CARD_MIN_WIDTH);
+            let width = &mut column_widths[cell.column];
+            *width = width.max(card_width + 2.0 * CARD_MARGIN);
+        }
+        let row_count: usize = map.rows_by_level.iter().sum();
+        let row_heights = vec![ROW_HEIGHT; row_count];
+        Self {
+            column_lefts: starts_of(&column_widths, PAGE_PADDING),
+            row_tops: starts_of(&row_heights, PAGE_PADDING),
+            first_row_by_level: starts_of(&map.rows_by_level, 0),
+            width: 2.0 * PAGE_PADDING + column_widths.iter().sum::<f32>(),
+            height: 2.0 * PAGE_PADDING + row_heights.iter().sum::<f32>(),
+            column_widths,
+        }
+    }
+}
+
+// The start of each track when the tracks are put one after another from `origin`
+fn starts_of<T: Copy + std::ops::Add<Output = T>>(sizes: &[T], origin: T) -> Vec<T> {
+    sizes
+        .iter()
+        .scan(origin, |next, size| {
+            let start = *next;
+            *next = *next + *size;
+            Some(start)
+        })
+        .collect()
 }
 
 // The width of each text when it is drawn with the fonts
@@ -112,8 +131,10 @@ fn measure(texts: &[&str], options: &ImageOptions) -> Vec<f32> {
         .collect();
     let svg =
         format!(r#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">{elements}</svg>"#);
-    let mut usvg_options = usvg::Options::default();
-    usvg_options.fontdb = options.fonts.clone();
+    let usvg_options = usvg::Options {
+        fontdb: options.fonts.clone(),
+        ..usvg::Options::default()
+    };
     let tree = Tree::from_str(&svg, &usvg_options).expect("the measuring svg is well formed");
     (0..texts.len())
         .map(|index| {

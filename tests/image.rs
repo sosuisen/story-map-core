@@ -17,8 +17,10 @@ fn svg_of(outline: &str) -> String {
 }
 
 fn tree_of(svg: &str) -> Tree {
-    let mut options = Options::default();
-    options.fontdb = IMAGE_OPTIONS.fonts.clone();
+    let options = Options {
+        fontdb: IMAGE_OPTIONS.fonts.clone(),
+        ..Options::default()
+    };
     Tree::from_str(svg, &options).unwrap()
 }
 
