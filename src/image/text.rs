@@ -7,7 +7,7 @@ use resvg::usvg::{self, Tree};
 use super::ImageOptions;
 use crate::escape::escape_markup;
 
-// HTML shows a line break inside a paragraph as a space
+// The image has one line per text, so a line break becomes a space
 fn one_line(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -56,7 +56,7 @@ impl TextSpec {
             text: prefix.to_string(),
             ..Run::default()
         }];
-        runs.extend(runs_of(&one_line(markdown)));
+        runs.extend(runs_of(markdown));
         Self {
             runs,
             font_size,
@@ -107,7 +107,7 @@ fn runs_of(markdown: &str) -> Vec<Run> {
             collect_runs(paragraph, &Run::default(), &mut runs);
         }
         _ => runs.push(Run {
-            text: markdown.to_string(),
+            text: one_line(markdown),
             ..Run::default()
         }),
     }
