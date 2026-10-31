@@ -187,3 +187,23 @@ fn every_second_band_below_level_4_is_lighter() {
     assert_eq!(fill_of(&tree, "band-4"), "#fffaf3");
     assert_eq!(fill_of(&tree, "band-5"), "#fff3e0");
 }
+
+fn has_shadow(tree: &Tree, index: usize) -> bool {
+    match tree.node_by_id(&format!("card-{index}-shadow")) {
+        Some(Node::Group(group)) => !group.filters().is_empty(),
+        _ => false,
+    }
+}
+
+// 完了のカードは枠線がなく、未完了のカードには影がある
+#[test]
+fn a_done_card_has_no_border_and_an_open_card_has_a_shadow() {
+    let tree = tree_of(&svg_of("- Activity\n\t- [x] Done\n\t- [ ] Open"));
+
+    assert!(stroke_of(&tree, "card-0").is_some());
+    assert!(!has_shadow(&tree, 0));
+    assert_eq!(stroke_of(&tree, "card-1"), None);
+    assert!(!has_shadow(&tree, 1));
+    assert!(stroke_of(&tree, "card-2").is_some());
+    assert!(has_shadow(&tree, 2));
+}
