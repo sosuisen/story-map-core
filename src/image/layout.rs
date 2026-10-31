@@ -2,7 +2,7 @@
 
 use super::{
     BAND_BORDER, CARD_MARGIN, CardContent, LEVEL_TITLE_MARGIN, LEVEL_TITLE_PADDING_X, PAGE_PADDING,
-    ROW_HEIGHT,
+    ROW_HEIGHT, border_of,
 };
 use crate::StoryMap;
 
@@ -74,7 +74,7 @@ impl Grid {
         let mut row_heights = vec![BAND_BORDER; row_count];
         for (cell, content) in map.cells.iter().zip(contents) {
             let height = &mut row_heights[first_row_by_level[cell.level] + cell.row_in_level];
-            *height = height.max(content.card_height() + 2.0 * CARD_MARGIN);
+            *height = height.max(content.card_height(border_of(cell)) + 2.0 * CARD_MARGIN);
         }
         for (title, row) in map.level_titles.iter().zip(&first_row_by_level) {
             if !title.is_empty() {

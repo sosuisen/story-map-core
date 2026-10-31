@@ -360,9 +360,15 @@ impl CardContent {
         natural.max(CARD_MIN_WIDTH)
     }
 
-    fn card_height(&self) -> f32 {
-        self.lines.len() as f32 * LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + CARD_BORDER)
+    // The height that the lines need. The row may make the card taller
+    fn card_height(&self, border: f32) -> f32 {
+        self.lines.len() as f32 * LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + border)
     }
+}
+
+// A done card has no border, like in CSS
+fn border_of(cell: &Cell) -> f32 {
+    if cell.card.done { 0.0 } else { CARD_BORDER }
 }
 
 // The shadow of an open card, like `box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2)`
@@ -371,13 +377,14 @@ const SHADOW_FILTER: &str = r#"<filter id="shadow" x="-20%" y="-20%" width="140%
 fn render_card(index: usize, cell: &Cell, content: &CardContent, grid: &Grid) -> String {
     let column = grid.first_card_column + cell.column;
     let left = grid.column_lefts[column] + CARD_MARGIN;
-    let top = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
+    let row = grid.first_row_by_level[cell.level] + cell.row_in_level;
+    let top = grid.row_tops[row] + CARD_MARGIN;
     let width = grid.column_widths[column] - 2.0 * CARD_MARGIN;
+    // Like `align-self: stretch` in CSS, every card fills the height of its row
+    let height = grid.row_heights[row] - 2.0 * CARD_MARGIN;
     let base = level_color(cell.level);
     let fill = shaded(base, CARD_SHADE);
-    // A done card has no border, so it is shorter by the border, like in CSS
-    let border = if cell.card.done { 0.0 } else { CARD_BORDER };
-    let height = content.card_height() - 2.0 * (CARD_BORDER - border);
+    let border = border_of(cell);
     // An SVG stroke is centered on the outline, but a CSS border is inside the box
     let frame = if border > 0.0 {
         format!(
