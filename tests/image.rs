@@ -195,6 +195,18 @@ fn a_word_longer_than_the_maximum_breaks_inside() {
     assert_eq!(lines.concat(), word);
 }
 
+// タグも、本文に続けて折り返す
+#[test]
+fn tags_wrap_after_the_text() {
+    let tree = tree_of(&svg_of("- A task with tags #first #second #third #fourth"));
+
+    let card = card_box(&tree, 0);
+    assert_eq!(card.width(), 240.0);
+    let last_tag = node_box(&tree, "card-0-tag-3");
+    assert!(text_box(&tree, "A task with tags").bottom() < last_tag.top());
+    assert!(contains(card, last_tag));
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
