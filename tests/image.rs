@@ -295,3 +295,19 @@ fn a_level_without_cards_is_drawn_as_a_thin_band() {
     assert!(empty.height() > 0.0);
     assert!(empty.height() < card_box(&tree, 1).height());
 }
+
+// タイトルとリストの上のノートは、マップの上に描かれる
+#[test]
+fn the_title_and_the_leading_notes_are_drawn_above_the_map() {
+    let tree = tree_of(&svg_of(
+        "# Map Title\n\nFirst note.\n\nSecond note.\n\n- Activity",
+    ));
+
+    let title = text_box(&tree, "Map Title");
+    let first = text_box(&tree, "First note.");
+    let second = text_box(&tree, "Second note.");
+    assert!(title.bottom() < first.top() && first.bottom() < second.top());
+    assert!(second.bottom() < node_box(&tree, "band-0").top());
+    // タイトルは、ノートより大きな文字で描かれる
+    assert!(title.height() > first.height());
+}
