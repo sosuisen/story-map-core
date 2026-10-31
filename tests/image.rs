@@ -141,6 +141,23 @@ fn cards_in_the_same_column_have_the_same_width() {
     assert_eq!(card_box(&tree, 0).width(), card_box(&tree, 1).width());
 }
 
+const LONG_TEXT: &str = "A card with a long text that does not fit on one line of the card";
+
+// 上限より長い文のカードは、上限の幅（既定240px）で、複数の行に折り返す
+#[test]
+fn a_long_card_wraps_at_the_maximum_width() {
+    let tree = tree_of(&svg_of(&format!("- {LONG_TEXT}")));
+
+    let card = card_box(&tree, 0);
+    assert_eq!(card.width(), 240.0);
+    let lines = texts_of(&tree);
+    assert!(lines.len() > 1);
+    assert!(lines.iter().all(|(_, line)| contains(card, *line)));
+    // 行をつなぐと、元の文に戻る
+    let joined: Vec<String> = lines.into_iter().map(|(text, _)| text).collect();
+    assert_eq!(joined.join(" "), LONG_TEXT);
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
