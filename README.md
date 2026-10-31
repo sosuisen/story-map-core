@@ -113,6 +113,7 @@ let png: Vec<u8> = render_png(&map, &options);
 The image follows the look of the HTML output.
 A card is up to `ImageOptions::max_card_width` wide, which is 240 by default.
 A longer text wraps onto more lines.
+Japanese punctuation does not start a line, and an opening bracket does not end one.
 Bold, italic, and code get their fonts. Links become plain text.
 
 The text is measured and drawn with the fonts in `ImageOptions::fonts`.
