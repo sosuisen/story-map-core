@@ -9,6 +9,7 @@ mod text;
 use std::sync::Arc;
 
 pub use resvg::usvg::fontdb;
+use resvg::{tiny_skia, usvg};
 
 use crate::style::{
     ALT_SHADE, BORDER_SHADE, CARD_SHADE, checkbox_emoji, is_alt_band, level_color, shaded,
@@ -126,6 +127,34 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
     format!(
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><defs>{SHADOW_FILTER}</defs><rect width="{width}" height="{height}" fill="white"/>{notes}{bands}{level_titles}{cards}</svg>"#
     )
+}
+
+/// Render the map as a PNG image, `options.scale` times as large as the SVG
+///
+/// # Panics
+///
+/// Panics if `options.scale` is not a positive finite number
+pub fn render_png(map: &StoryMap, options: &ImageOptions) -> Vec<u8> {
+    assert!(
+        options.scale.is_finite() && options.scale > 0.0,
+        "the scale must be a positive finite number"
+    );
+    let usvg_options = usvg::Options {
+        fontdb: options.fonts.clone(),
+        ..usvg::Options::default()
+    };
+    let tree = usvg::Tree::from_str(&render_svg(map, options), &usvg_options)
+        .expect("the rendered svg is well formed");
+    // Round up after scaling. Rounding first would add up to one pixel per scale step
+    let width = (tree.size().width() * options.scale).ceil() as u32;
+    let height = (tree.size().height() * options.scale).ceil() as u32;
+    let mut pixmap = tiny_skia::Pixmap::new(width, height).expect("the image is not too large");
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(options.scale, options.scale),
+        &mut pixmap.as_mut(),
+    );
+    pixmap.encode_png().expect("a pixmap can be encoded as png")
 }
 
 /// The texts inside a card, with their measured widths
