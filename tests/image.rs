@@ -122,3 +122,19 @@ fn a_column_with_a_long_text_is_wider() {
     // 広い列の分だけ、右の列は右にずれる
     assert!(long.right() < card_box(&tree, 2).left());
 }
+
+// 短い文字のカードも、最小の幅（120px）を持つ
+#[test]
+fn a_short_card_has_the_minimum_width() {
+    let tree = tree_of(&svg_of("- A"));
+
+    assert_eq!(card_box(&tree, 0).width(), 120.0);
+}
+
+// 同じ列のカードは、同じ幅になる
+#[test]
+fn cards_in_the_same_column_have_the_same_width() {
+    let tree = tree_of(&svg_of("- Activity\n\t- A task with a much longer name"));
+
+    assert_eq!(card_box(&tree, 0).width(), card_box(&tree, 1).width());
+}
