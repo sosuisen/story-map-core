@@ -168,6 +168,27 @@ fn the_maximum_width_can_be_changed_in_the_options() {
     assert_eq!(card_box(&tree, 0).width(), 400.0);
 }
 
+// The lines of a card that wraps. Each line is inside the card
+fn wrapped_lines(outline: &str) -> Vec<String> {
+    let tree = tree_of(&svg_of(outline));
+    let card = card_box(&tree, 0);
+    assert_eq!(card.width(), 240.0);
+    let lines = texts_of(&tree);
+    assert!(lines.iter().all(|(_, line)| contains(card, *line)));
+    lines.into_iter().map(|(text, _)| text).collect()
+}
+
+// 日本語の文は、文字の間で折り返す
+#[test]
+fn a_japanese_text_wraps_between_characters() {
+    let text = "日本語の文には空白がないので、どの文字の間でも折り返してカードに収める";
+
+    let lines = wrapped_lines(&format!("- {text}"));
+
+    assert!(lines.len() > 1);
+    assert_eq!(lines.concat(), text);
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
