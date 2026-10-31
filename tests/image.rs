@@ -198,6 +198,21 @@ fn a_japanese_line_fills_the_card_before_it_wraps() {
     assert!(first_line.width() > inner_width - 2.0 * 16.0);
 }
 
+// 句読点や閉じ括弧は行の先頭に来ず、開き括弧は行の末尾に来ない
+#[test]
+fn punctuation_does_not_start_a_line_and_an_opening_bracket_does_not_end_one() {
+    let text = "あ。い、う」え）お。か、き」く）け。こ、さ「し（す。せ、そ「た（ち。つ、て「と（な。に、ぬ「ね（の。";
+
+    let lines = wrapped_lines(&format!("- {text}"));
+
+    assert!(lines.len() > 2);
+    assert_eq!(lines.concat(), text);
+    for line in &lines {
+        assert!(!line.starts_with(['。', '、', '」', '）']), "{lines:?}");
+        assert!(!line.ends_with(['「', '（']), "{lines:?}");
+    }
+}
+
 // 上限より長い1語は、語の途中で折り返す
 #[test]
 fn a_word_longer_than_the_maximum_breaks_inside() {
