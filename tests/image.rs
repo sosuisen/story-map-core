@@ -207,6 +207,19 @@ fn tags_wrap_after_the_text() {
     assert!(contains(card, last_tag));
 }
 
+// 折り返したカードの行は高くなり、同じ行のカードは同じ高さになる
+#[test]
+fn a_row_with_a_wrapped_card_is_taller_and_its_cards_match() {
+    let tree = tree_of(&svg_of(&format!("- Short\n- {LONG_TEXT}")));
+    let one_line = card_box(&tree_of(&svg_of("- Short")), 0);
+
+    let short = card_box(&tree, 0);
+    let long = card_box(&tree, 1);
+    assert!(long.height() > one_line.height());
+    assert_eq!(short.top(), long.top());
+    assert_eq!(short.height(), long.height());
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
