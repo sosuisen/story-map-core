@@ -5,7 +5,7 @@
 
 use std::sync::LazyLock;
 
-use resvg::usvg::{Group, Node, Options, Rect, Text, Tree};
+use resvg::usvg::{Group, Node, Options, Paint, Path, Rect, Text, Tree};
 use story_map_core::image::{ImageOptions, render_svg};
 use story_map_core::parse;
 
@@ -137,4 +137,41 @@ fn cards_in_the_same_column_have_the_same_width() {
     let tree = tree_of(&svg_of("- Activity\n\t- A task with a much longer name"));
 
     assert_eq!(card_box(&tree, 0).width(), card_box(&tree, 1).width());
+}
+
+fn color_hex(paint: &Paint) -> String {
+    match paint {
+        Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
+        _ => panic!("not a plain color"),
+    }
+}
+
+fn path_by_id<'a>(tree: &'a Tree, id: &str) -> &'a Path {
+    match tree.node_by_id(id) {
+        Some(Node::Path(path)) => path,
+        _ => panic!("no path with id {id}"),
+    }
+}
+
+fn fill_of(tree: &Tree, id: &str) -> String {
+    color_hex(path_by_id(tree, id).fill().unwrap().paint())
+}
+
+fn stroke_of(tree: &Tree, id: &str) -> Option<String> {
+    path_by_id(tree, id)
+        .stroke()
+        .map(|stroke| color_hex(stroke.paint()))
+}
+
+// カードと帯は、レベルの色で塗られる
+#[test]
+fn cards_and_bands_are_painted_in_the_level_colors() {
+    let tree = tree_of(&svg_of("- Activity\n\t- Task"));
+
+    // 帯はレベルの基本色、カードはそれより暗い色、枠線はさらに暗い色になる
+    assert_eq!(fill_of(&tree, "band-0"), "#e0efff");
+    assert_eq!(fill_of(&tree, "card-0"), "#bedeff");
+    assert_eq!(stroke_of(&tree, "card-0").as_deref(), Some("#208cff"));
+    assert_eq!(fill_of(&tree, "band-1"), "#e0ffee");
+    assert_eq!(fill_of(&tree, "card-1"), "#beffdc");
 }
