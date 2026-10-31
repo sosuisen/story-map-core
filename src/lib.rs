@@ -57,6 +57,7 @@ pub struct StoryMap {
 }
 
 // Run the code examples in the README as doctests, so that they keep working
-#[cfg(doctest)]
+// The examples in the README use the html feature
+#[cfg(all(doctest, feature = "html"))]
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;
