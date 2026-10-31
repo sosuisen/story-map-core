@@ -78,7 +78,7 @@ let page = format!("<style>{}</style><div class=\"map-zoom\">{}</div>", map_css(
 `inline_html` renders one piece of inline Markdown, such as a card text.
 Raw HTML in the text is escaped.
 
-A card is up to 240px wide, and a longer text wraps onto more lines.
+A card is up to 160px wide, and a longer text wraps onto more lines.
 To change the width, set the CSS variable `--card-max-width` on the page:
 
 ```css
@@ -111,7 +111,7 @@ let png: Vec<u8> = render_png(&map, &options);
 ```
 
 The image follows the look of the HTML output.
-A card is up to `ImageOptions::max_card_width` wide, which is 240 by default.
+A card is up to `ImageOptions::max_card_width` wide, which is 160 by default.
 A longer text wraps onto more lines.
 Japanese punctuation does not start a line, and an opening bracket does not end one.
 Bold, italic, and code get their fonts. Links become plain text.
