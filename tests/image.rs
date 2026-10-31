@@ -50,7 +50,7 @@ fn content_of(text: &Text) -> String {
 fn the_svg_is_large_enough_for_the_whole_map() {
     let tree = tree_of(&svg_of("- Activity A\n\t- Task A1\n- Activity B"));
 
-    let content = tree.root().abs_bounding_box();
+    let content = tree.root().abs_stroke_bounding_box();
     assert!(content.width() > 0.0 && content.height() > 0.0);
     assert!(content.right() <= tree.size().width());
     assert!(content.bottom() <= tree.size().height());
@@ -100,11 +100,11 @@ fn a_child_card_is_below_its_parent_in_the_same_column() {
     assert_eq!(task.left(), detail.left());
 }
 
-// The box of the card frame at the given index of the cells
+// The outer box of the card frame at the given index of the cells, with its border
 fn card_box(tree: &Tree, index: usize) -> Rect {
     tree.node_by_id(&format!("card-{index}"))
         .unwrap()
-        .abs_bounding_box()
+        .abs_stroke_bounding_box()
 }
 
 // 長い文字のカードの列は、短い文字の列より広くなる

@@ -8,8 +8,8 @@ use std::sync::Arc;
 pub use resvg::usvg::fontdb;
 use resvg::usvg::{self, Tree};
 
-use crate::StoryMap;
 use crate::style::{ALT_SHADE, BORDER_SHADE, CARD_SHADE, is_alt_band, level_color, shaded};
+use crate::{Cell, StoryMap};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -22,6 +22,7 @@ const CARD_BORDER: f32 = 2.0;
 const CARD_PADDING_X: f32 = 8.0;
 const CARD_PADDING_Y: f32 = 4.0;
 const CARD_MIN_WIDTH: f32 = 120.0;
+const CARD_RADIUS: f32 = 6.0;
 const CARD_HEIGHT: f32 = LINE_HEIGHT + 2.0 * (CARD_PADDING_Y + CARD_BORDER);
 const ROW_HEIGHT: f32 = CARD_HEIGHT + 2.0 * CARD_MARGIN;
 const BAND_BORDER: f32 = 2.0;
@@ -59,25 +60,52 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
         .cells
         .iter()
         .enumerate()
-        .map(|(index, cell)| {
-            let x = grid.column_lefts[cell.column] + CARD_MARGIN;
-            let y = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
-            let width = grid.column_widths[cell.column] - 2.0 * CARD_MARGIN;
-            let base = level_color(cell.level);
-            format!(
-                r#"<rect id="card-{index}" x="{x}" y="{y}" width="{width}" height="{CARD_HEIGHT}" fill="{}" stroke="{}" stroke-width="{CARD_BORDER}"/><text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}">{}</text>"#,
-                shaded(base, CARD_SHADE),
-                shaded(base, BORDER_SHADE),
-                x + CARD_BORDER + CARD_PADDING_X,
-                y + CARD_BORDER + CARD_PADDING_Y + BASELINE,
-                cell.card.text
-            )
-        })
+        .map(|(index, cell)| render_card(index, cell, &grid))
         .collect();
     let bands = render_bands(map, &grid);
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{1}"><rect width="{0}" height="{1}" fill="white"/>{bands}{cards}</svg>"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{0}" height="{1}"><defs>{SHADOW_FILTER}</defs><rect width="{0}" height="{1}" fill="white"/>{bands}{cards}</svg>"#,
         grid.width, grid.height
+    )
+}
+
+// The shadow of an open card, like `box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2)`
+const SHADOW_FILTER: &str = r#"<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.2"/></filter>"#;
+
+fn render_card(index: usize, cell: &Cell, grid: &Grid) -> String {
+    let left = grid.column_lefts[cell.column] + CARD_MARGIN;
+    let top = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
+    let width = grid.column_widths[cell.column] - 2.0 * CARD_MARGIN;
+    let base = level_color(cell.level);
+    let fill = shaded(base, CARD_SHADE);
+    // A done card has no border, so it is shorter by the border, like in CSS
+    let border = if cell.card.done { 0.0 } else { CARD_BORDER };
+    let height = CARD_HEIGHT - 2.0 * (CARD_BORDER - border);
+    // An SVG stroke is centered on the outline, but a CSS border is inside the box
+    let frame = if border > 0.0 {
+        format!(
+            r#"<rect id="card-{index}" x="{}" y="{}" width="{}" height="{}" rx="{CARD_RADIUS}" fill="{fill}" stroke="{}" stroke-width="{border}"/>"#,
+            left + border / 2.0,
+            top + border / 2.0,
+            width - border,
+            height - border,
+            shaded(base, BORDER_SHADE)
+        )
+    } else {
+        format!(
+            r#"<rect id="card-{index}" x="{left}" y="{top}" width="{width}" height="{height}" rx="{CARD_RADIUS}" fill="{fill}"/>"#
+        )
+    };
+    let frame = if cell.card.todo {
+        format!(r#"<g id="card-{index}-shadow" filter="url(#shadow)">{frame}</g>"#)
+    } else {
+        frame
+    };
+    format!(
+        r#"{frame}<text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}">{}</text>"#,
+        left + border + CARD_PADDING_X,
+        top + border + CARD_PADDING_Y + BASELINE,
+        cell.card.text
     )
 }
 
