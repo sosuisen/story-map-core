@@ -3,15 +3,19 @@
 //! The image follows the look of the HTML output.
 //! The text is measured with real fonts, so that each column is as wide as its longest card.
 
+mod layout;
+mod text;
+
 use std::sync::Arc;
 
 pub use resvg::usvg::fontdb;
-use resvg::usvg::{self, Tree};
 
 use crate::style::{
     ALT_SHADE, BORDER_SHADE, CARD_SHADE, checkbox_emoji, is_alt_band, level_color, shaded,
 };
 use crate::{Cell, StoryMap};
+use layout::{Flow, Grid};
+use text::{TextSpec, measure, one_line};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -100,13 +104,7 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
         let top = flow.place(LINE_HEIGHT, NOTE_MARGIN);
         texts.push((TextSpec::new(&one_line(note), FONT_SIZE), top + BASELINE));
     }
-    let specs: Vec<TextSpec> = texts
-        .iter()
-        .map(|(spec, _)| TextSpec {
-            text: spec.text.clone(),
-            ..*spec
-        })
-        .collect();
+    let specs: Vec<TextSpec> = texts.iter().map(|(spec, _)| spec.clone()).collect();
     let content_width = measure(&specs, options)
         .into_iter()
         .fold(grid.width, f32::max);
@@ -128,38 +126,6 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
     format!(
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><defs>{SHADOW_FILTER}</defs><rect width="{width}" height="{height}" fill="white"/>{notes}{bands}{level_titles}{cards}</svg>"#
     )
-}
-
-// HTML shows a line break inside a paragraph as a space
-fn one_line(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-/// Blocks stacked from the top. Like CSS, the margins between two blocks collapse into the larger one
-struct Flow {
-    bottom: f32,
-    pending_margin: f32,
-}
-
-impl Flow {
-    fn new(top: f32) -> Self {
-        Self {
-            bottom: top,
-            pending_margin: 0.0,
-        }
-    }
-
-    // Put a block with the same margin above and below it, and return its top
-    fn place(&mut self, height: f32, margin: f32) -> f32 {
-        let top = self.bottom + self.pending_margin.max(margin);
-        self.bottom = top + height;
-        self.pending_margin = margin;
-        top
-    }
-
-    fn end(&self) -> f32 {
-        self.bottom + self.pending_margin
-    }
 }
 
 /// The texts inside a card, with their measured widths
@@ -309,133 +275,6 @@ fn render_bands(map: &StoryMap, grid: &Grid) -> String {
                 left + width,
                 shaded(base, CARD_SHADE)
             )
-        })
-        .collect()
-}
-
-/// The positions of the grid tracks on the canvas
-struct Grid {
-    column_lefts: Vec<f32>,
-    column_widths: Vec<f32>,
-    // With level titles, the first column holds them and the cards start at the second column
-    first_card_column: usize,
-    row_tops: Vec<f32>,
-    row_heights: Vec<f32>,
-    first_row_by_level: Vec<usize>,
-    // The size of the grid itself, without the padding of the page
-    width: f32,
-    height: f32,
-}
-
-impl Grid {
-    // Like CSS Grid, each column is as wide as its widest card
-    fn new(map: &StoryMap, contents: &[CardContent], level_title_widths: &[f32], top: f32) -> Self {
-        let first_card_column = usize::from(!map.level_titles.is_empty());
-        let mut column_widths = vec![0.0_f32; first_card_column + map.column_count];
-        if first_card_column == 1 {
-            column_widths[0] = level_title_widths
-                .iter()
-                .map(|width| width + 2.0 * (LEVEL_TITLE_PADDING_X + LEVEL_TITLE_MARGIN))
-                .fold(0.0, f32::max);
-        }
-        for (cell, content) in map.cells.iter().zip(contents) {
-            let card_width =
-                (content.width() + 2.0 * (CARD_PADDING_X + CARD_BORDER)).max(CARD_MIN_WIDTH);
-            let width = &mut column_widths[first_card_column + cell.column];
-            *width = width.max(card_width + 2.0 * CARD_MARGIN);
-        }
-        let first_row_by_level = starts_of(&map.rows_by_level, 0);
-        // Like CSS Grid, a row without cards or titles has no height. Only the dashed line of the band shows
-        let row_count: usize = map.rows_by_level.iter().sum();
-        let mut row_heights = vec![BAND_BORDER; row_count];
-        for cell in &map.cells {
-            row_heights[first_row_by_level[cell.level] + cell.row_in_level] = ROW_HEIGHT;
-        }
-        for (title, row) in map.level_titles.iter().zip(&first_row_by_level) {
-            if !title.is_empty() {
-                row_heights[*row] = ROW_HEIGHT;
-            }
-        }
-        Self {
-            column_lefts: starts_of(&column_widths, PAGE_PADDING),
-            row_tops: starts_of(&row_heights, top),
-            first_row_by_level,
-            width: column_widths.iter().sum::<f32>(),
-            height: row_heights.iter().sum::<f32>(),
-            column_widths,
-            first_card_column,
-            row_heights,
-        }
-    }
-}
-
-// The start of each track when the tracks are put one after another from `origin`
-fn starts_of<T: Copy + std::ops::Add<Output = T>>(sizes: &[T], origin: T) -> Vec<T> {
-    sizes
-        .iter()
-        .scan(origin, |next, size| {
-            let start = *next;
-            *next = *next + *size;
-            Some(start)
-        })
-        .collect()
-}
-
-/// A text to measure and draw, with its font
-struct TextSpec {
-    text: String,
-    font_size: f32,
-    bold: bool,
-}
-
-impl TextSpec {
-    fn new(text: &str, font_size: f32) -> Self {
-        Self {
-            text: text.to_string(),
-            font_size,
-            bold: false,
-        }
-    }
-
-    fn bold(text: &str, font_size: f32) -> Self {
-        Self {
-            bold: true,
-            ..Self::new(text, font_size)
-        }
-    }
-
-    // A `<text>` element with its baseline at (x, y)
-    fn to_svg(&self, x: f32, y: f32, extra: &str) -> String {
-        let weight = if self.bold {
-            r#" font-weight="bold""#
-        } else {
-            ""
-        };
-        format!(
-            r#"<text x="{x}" y="{y}" font-family="sans-serif" font-size="{}"{weight}{extra}>{}</text>"#,
-            self.font_size, self.text
-        )
-    }
-}
-
-// The width of each text when it is drawn with the fonts
-fn measure(texts: &[TextSpec], options: &ImageOptions) -> Vec<f32> {
-    let elements: String = texts
-        .iter()
-        .enumerate()
-        .map(|(index, text)| text.to_svg(0.0, 0.0, &format!(r#" id="text-{index}""#)))
-        .collect();
-    let svg =
-        format!(r#"<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">{elements}</svg>"#);
-    let usvg_options = usvg::Options {
-        fontdb: options.fonts.clone(),
-        ..usvg::Options::default()
-    };
-    let tree = Tree::from_str(&svg, &usvg_options).expect("the measuring svg is well formed");
-    (0..texts.len())
-        .map(|index| {
-            tree.node_by_id(&format!("text-{index}"))
-                .map_or(0.0, |node| node.abs_bounding_box().width())
         })
         .collect()
 }
