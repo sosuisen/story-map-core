@@ -156,6 +156,18 @@ fn a_long_card_wraps_at_the_maximum_width() {
     assert_eq!(joined.join(" "), LONG_TEXT);
 }
 
+// 上限は、ImageOptionsで変えられる
+#[test]
+fn the_maximum_width_can_be_changed_in_the_options() {
+    let options = ImageOptions {
+        max_card_width: 400.0,
+        ..IMAGE_OPTIONS.clone()
+    };
+    let tree = tree_of(&render_svg(&parse(&format!("- {LONG_TEXT}")), &options));
+
+    assert_eq!(card_box(&tree, 0).width(), 400.0);
+}
+
 fn color_hex(paint: &Paint) -> String {
     match paint {
         Paint::Color(color) => format!("#{:02x}{:02x}{:02x}", color.red, color.green, color.blue),
