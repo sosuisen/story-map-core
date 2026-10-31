@@ -9,7 +9,7 @@ pub use resvg::usvg::fontdb;
 use resvg::usvg::{self, Tree};
 
 use crate::style::{ALT_SHADE, BORDER_SHADE, CARD_SHADE, is_alt_band, level_color, shaded};
-use crate::{Cell, StoryMap};
+use crate::{Card, Cell, StoryMap};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;
@@ -50,17 +50,17 @@ impl Default for ImageOptions {
 
 /// Render the map as an SVG document
 pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
-    let texts: Vec<&str> = map
+    let texts: Vec<String> = map
         .cells
         .iter()
-        .map(|cell| cell.card.text.as_str())
+        .map(|cell| display_text(&cell.card))
         .collect();
     let grid = Grid::new(map, &measure(&texts, options));
     let cards: String = map
         .cells
         .iter()
         .enumerate()
-        .map(|(index, cell)| render_card(index, cell, &grid))
+        .map(|(index, cell)| render_card(index, cell, &texts[index], &grid))
         .collect();
     let bands = render_bands(map, &grid);
     format!(
@@ -72,7 +72,7 @@ pub fn render_svg(map: &StoryMap, options: &ImageOptions) -> String {
 // The shadow of an open card, like `box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2)`
 const SHADOW_FILTER: &str = r#"<filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="black" flood-opacity="0.2"/></filter>"#;
 
-fn render_card(index: usize, cell: &Cell, grid: &Grid) -> String {
+fn render_card(index: usize, cell: &Cell, text: &str, grid: &Grid) -> String {
     let left = grid.column_lefts[cell.column] + CARD_MARGIN;
     let top = grid.row_tops[grid.first_row_by_level[cell.level] + cell.row_in_level] + CARD_MARGIN;
     let width = grid.column_widths[cell.column] - 2.0 * CARD_MARGIN;
@@ -102,11 +102,22 @@ fn render_card(index: usize, cell: &Cell, grid: &Grid) -> String {
         frame
     };
     format!(
-        r#"{frame}<text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}">{}</text>"#,
+        r#"{frame}<text x="{}" y="{}" font-family="sans-serif" font-size="{FONT_SIZE}">{text}</text>"#,
         left + border + CARD_PADDING_X,
         top + border + CARD_PADDING_Y + BASELINE,
-        cell.card.text
     )
+}
+
+// The text of a card with its checkbox as an emoji
+fn display_text(card: &Card) -> String {
+    let checkbox = if card.done {
+        "✅ "
+    } else if card.todo {
+        "⬜ "
+    } else {
+        ""
+    };
+    format!("{checkbox}{}", card.text)
 }
 
 // One band per level behind the cards, with a dashed line at the bottom
@@ -184,7 +195,7 @@ fn starts_of<T: Copy + std::ops::Add<Output = T>>(sizes: &[T], origin: T) -> Vec
 }
 
 // The width of each text when it is drawn with the fonts
-fn measure(texts: &[&str], options: &ImageOptions) -> Vec<f32> {
+fn measure(texts: &[String], options: &ImageOptions) -> Vec<f32> {
     let elements: String = texts
         .iter()
         .enumerate()
