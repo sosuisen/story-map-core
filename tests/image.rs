@@ -221,3 +221,26 @@ fn checkboxes_are_drawn_as_emoji() {
     assert!(contents.contains(&"✅ Done".to_string()));
     assert!(contents.contains(&"⬜ Open".to_string()));
 }
+
+// タグは、本文の後ろに丸い背景付きで描かれる
+#[test]
+fn tags_are_drawn_after_the_text_on_round_backgrounds() {
+    let tree = tree_of(&svg_of("- Activity #tag1 #tag2"));
+
+    let text = text_box(&tree, "Activity");
+    let tag1 = text_box(&tree, "tag1");
+    let tag2 = text_box(&tree, "tag2");
+    assert!(text.right() < tag1.left() && tag1.right() < tag2.left());
+    // タグの背景は白で、タグの文字を囲む
+    assert_eq!(fill_of(&tree, "card-0-tag-0"), "#ffffff");
+    let background = tree.node_by_id("card-0-tag-0").unwrap().abs_bounding_box();
+    assert!(background.left() < tag1.left() && tag1.right() < background.right());
+    // タグまで含めて、カードの枠に収まる
+    assert!(
+        tree.node_by_id("card-0-tag-1")
+            .unwrap()
+            .abs_bounding_box()
+            .right()
+            < card_box(&tree, 0).right()
+    );
+}
