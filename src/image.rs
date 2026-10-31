@@ -68,11 +68,58 @@ impl Default for ImageOptions {
     fn default() -> Self {
         let mut fonts = fontdb::Database::new();
         fonts.load_system_fonts();
+        use_installed_generic_fonts(&mut fonts);
         Self {
             fonts: Arc::new(fonts),
             scale: 1.0,
         }
     }
+}
+
+// fontdb maps "sans-serif" to Arial and "monospace" to Courier New.
+// Linux usually has neither, and then no text is drawn
+fn use_installed_generic_fonts(fonts: &mut fontdb::Database) {
+    if let Some(family) = installed_family(fonts, SANS_SERIF_FAMILIES, false) {
+        fonts.set_sans_serif_family(family);
+    }
+    if let Some(family) = installed_family(fonts, MONOSPACE_FAMILIES, true) {
+        fonts.set_monospace_family(family);
+    }
+}
+
+const SANS_SERIF_FAMILIES: &[&str] = &[
+    "Arial",
+    "Helvetica",
+    "Liberation Sans",
+    "DejaVu Sans",
+    "Noto Sans",
+];
+const MONOSPACE_FAMILIES: &[&str] = &[
+    "Courier New",
+    "Menlo",
+    "Liberation Mono",
+    "DejaVu Sans Mono",
+    "Noto Sans Mono",
+];
+
+// The first of the known families that is installed, or else the first installed family of the kind
+fn installed_family(fonts: &fontdb::Database, known: &[&str], monospaced: bool) -> Option<String> {
+    let installed = |name: &str| {
+        fonts
+            .faces()
+            .any(|face| face.families.iter().any(|(family, _)| family == name))
+    };
+    known
+        .iter()
+        .find(|name| installed(name))
+        .map(|name| name.to_string())
+        .or_else(|| {
+            fonts
+                .faces()
+                .find(|face| face.monospaced == monospaced)
+                .and_then(|face| face.families.first())
+                .map(|(family, _)| family.clone())
+        })
 }
 
 /// Render the map as an SVG document
