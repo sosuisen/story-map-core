@@ -5,7 +5,7 @@
 
 use std::sync::LazyLock;
 
-use resvg::usvg::{Options, Tree};
+use resvg::usvg::{Group, Node, Options, Rect, Text, Tree};
 use story_map_core::image::{ImageOptions, render_svg};
 use story_map_core::parse;
 
@@ -22,6 +22,27 @@ fn tree_of(svg: &str) -> Tree {
     Tree::from_str(svg, &options).unwrap()
 }
 
+// Every text of the image, with its box on the canvas
+fn texts_of(tree: &Tree) -> Vec<(String, Rect)> {
+    let mut texts = Vec::new();
+    collect_texts(tree.root(), &mut texts);
+    texts
+}
+
+fn collect_texts(group: &Group, texts: &mut Vec<(String, Rect)>) {
+    for node in group.children() {
+        match node {
+            Node::Group(child) => collect_texts(child, texts),
+            Node::Text(text) => texts.push((content_of(text), text.abs_bounding_box())),
+            _ => {}
+        }
+    }
+}
+
+fn content_of(text: &Text) -> String {
+    text.chunks().iter().map(|chunk| chunk.text()).collect()
+}
+
 // SVGは、マップ全体が入る大きさのSVG文書になる
 #[test]
 fn the_svg_is_large_enough_for_the_whole_map() {
@@ -31,4 +52,14 @@ fn the_svg_is_large_enough_for_the_whole_map() {
     assert!(content.width() > 0.0 && content.height() > 0.0);
     assert!(content.right() <= tree.size().width());
     assert!(content.bottom() <= tree.size().height());
+}
+
+// カードの文字が、SVGの文字として描かれる
+#[test]
+fn card_texts_are_drawn_as_svg_text() {
+    let tree = tree_of(&svg_of("- Activity A\n\t- Task A1"));
+
+    let texts: Vec<String> = texts_of(&tree).into_iter().map(|(text, _)| text).collect();
+    assert!(texts.contains(&"Activity A".to_string()));
+    assert!(texts.contains(&"Task A1".to_string()));
 }
