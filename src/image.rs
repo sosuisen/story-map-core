@@ -35,17 +35,18 @@ pub fn render_svg(map: &StoryMap, _options: &ImageOptions) -> String {
     let texts: String = map
         .cells
         .iter()
-        .enumerate()
-        .map(|(index, cell)| {
+        .map(|cell| {
             format!(
-                r#"<text x="10" y="{}">{}</text>"#,
-                20 + index * 20,
+                r#"<text x="{}" y="{}">{}</text>"#,
+                10 + cell.column * 200,
+                20 + cell.level * 20,
                 cell.card.text
             )
         })
         .collect();
-    let height = 20 + map.cells.len() * 20;
+    let width = 10 + map.column_count * 200;
+    let height = 20 + map.rows_by_level.len() * 20;
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="400" height="{height}"><rect width="400" height="{height}" fill="white"/>{texts}</svg>"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}"><rect width="{width}" height="{height}" fill="white"/>{texts}</svg>"#
     )
 }
