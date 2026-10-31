@@ -3,15 +3,13 @@
 //! The image follows the look of the HTML output.
 //! The text is measured with real fonts, so that each column is as wide as its longest card.
 
-mod color;
-
 use std::sync::Arc;
 
 pub use resvg::usvg::fontdb;
 use resvg::usvg::{self, Tree};
 
 use crate::StoryMap;
-use color::{BORDER_SHADE, CARD_SHADE, level_color, shaded};
+use crate::style::{BORDER_SHADE, CARD_SHADE, level_color, shaded};
 
 // The sizes follow the CSS of the HTML output, in CSS pixels
 const FONT_SIZE: f32 = 16.0;

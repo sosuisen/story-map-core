@@ -6,6 +6,8 @@
 //! With the `image` feature, the [`image`] module renders the map as an SVG or PNG image.
 
 mod layout;
+#[cfg(any(feature = "html", feature = "image"))]
+mod style;
 mod tokens;
 
 #[cfg(feature = "html")]
