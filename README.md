@@ -1,5 +1,7 @@
 # storymap
 
+[![crates.io](https://img.shields.io/crates/v/storymap.svg)](https://crates.io/crates/storymap)
+
 Turn a Markdown outline into a user story map.
 
 This crate is the core of the VSCode extension [Story Mapping](https://github.com/sosuisen/vscode-user-story-mapping).
