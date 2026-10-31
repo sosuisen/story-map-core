@@ -1,6 +1,6 @@
 [package]
 name = "storymap"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Hidekazu Kubota"]
 license = "MIT"
@@ -9,6 +9,12 @@ repository = "https://github.com/sosuisen/storymap"
 readme = "README.md"
 keywords = ["story-map", "markdown", "outline", "agile"]
 categories = ["text-processing", "parser-implementations"]
+# The work notes and the CI settings are of no use to the users of the crate
+exclude = ["docs", ".github"]
+
+[package.metadata.docs.rs]
+# Show the html and image modules on docs.rs
+all-features = true
 
 [features]
 default = ["html"]
