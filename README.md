@@ -46,7 +46,7 @@ Add the crate to `Cargo.toml`:
 
 ```toml
 [dependencies]
-storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0" }
+storymap = "0.2"
 ```
 
 Read an outline as a `StoryMap`:
@@ -79,7 +79,7 @@ Raw HTML in the text is escaped.
 If you do not need HTML, turn the feature off:
 
 ```toml
-storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0", default-features = false }
+storymap = { version = "0.2", default-features = false }
 ```
 
 ### Image
@@ -87,7 +87,7 @@ storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0", defau
 The `image` feature is off by default. Turn it on:
 
 ```toml
-storymap = { git = "https://github.com/sosuisen/storymap", tag = "v0.2.0", features = ["image"] }
+storymap = { version = "0.2", features = ["image"] }
 ```
 
 Render the map as an SVG document or a PNG image:
@@ -116,6 +116,17 @@ cargo fmt --check
 cargo clippy --all-targets --all-features
 cargo test --all-features
 ```
+
+## Release
+
+The crate is published on [crates.io](https://crates.io/crates/storymap).
+
+1. Set the `version` in `Cargo.toml`, and merge the change into `main`.
+2. Tag the commit as `v<version>`, such as `v0.2.1`, and push the tag.
+3. Run `cargo publish` on the tagged commit.
+
+The tag and the `version` in `Cargo.toml` must be the same.
+A published version cannot be deleted or replaced, so run `cargo publish --dry-run` first.
 
 ## License
 
