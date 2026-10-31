@@ -89,11 +89,19 @@ fn run_to_svg(run: &Run) -> String {
     if run.code {
         attributes.push_str(r#" font-family="monospace""#);
     }
+    let text = escape_xml(&run.text);
     if attributes.is_empty() {
-        run.text.clone()
+        text
     } else {
-        format!("<tspan{attributes}>{}</tspan>", run.text)
+        format!("<tspan{attributes}>{text}</tspan>")
     }
+}
+
+fn escape_xml(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 fn runs_of(markdown: &str) -> Vec<Run> {
